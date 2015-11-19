@@ -12,10 +12,19 @@ def get_while(chars, text, i):
         i += 1
     return ''.join(w), i
 
+def pass_indent_space(text, i):
+    # TODO any space!
+    length = len(text)
+    while length > i and text[i] == ' ':
+        i += 1
+    return i
+
 def pass_space(text, i):
     # TODO any space!
     length = len(text)
     while length > i and text[i] == ' ':
+        if length > i - 1 and text[i-1] == '\n':
+            break
         i += 1
     return i
 
@@ -69,7 +78,7 @@ class Or(Token):
                 return self.process(result, i)
             except ParseError as e:
                 pass
-        raise ParseError("None of alternatives")
+        raise ParseError("None of alternatives %s. rest: |%s|" % (i, text[i:]))
 
 
 import re
@@ -80,11 +89,37 @@ class Regex(Token):
         i = pass_space(text, i)
         match = self.pattern.match(text, i)
         if not match:
-            raise ParseError("not matched %s" % i)
+            raise ParseError("not matched %s, rest:|%s|" % (i, text[i:]))
         i = match.end()
         i = pass_space(text, i)
         result = [match.group()]
         return self.process(result, i)
+
+class Forward(Token):
+# TODO process should happen
+    def parse(self, text, i):
+        return self.token.parse(text, i)
+    def __lshift__(self, token):
+        self.token = token
+
+class IndentedBlock(Token):
+    indents = [-1]
+    def __init__(self, stmt):
+        self.stmt = stmt
+    def parse(self, text, i):
+        block = []
+        stmt_start = pass_indent_space(text, i)
+        first_indent = stmt_start - i
+        indent = first_indent
+        self.indents.append(first_indent)
+        while self.indents[-1] == indent and indent > self.indents[-2] and i < len(text):
+            i = stmt_start
+            tokens, i = self.stmt.parse(text, i)
+            block.append(tokens)
+            stmt_start = pass_indent_space(text, i)
+            indent = stmt_start - i
+        self.indents.pop()
+        return self.process(block, i)
 
 class Literal(Token):
     def __init__(self, literal):
@@ -92,7 +127,7 @@ class Literal(Token):
     def parse(self, text, i):
         i = pass_space(text, i)
         if self.literal != text[i:i+len(self.literal)]:
-            raise ParseError("not matched %s %s" % (i, self.literal))
+            raise ParseError("not matched %s |%s| rest:|%s|" % (i, self.literal, text[i:]))
         i += len(self.literal)
         i = pass_space(text, i)
         result = [self.literal]

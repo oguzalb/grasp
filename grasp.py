@@ -1,4 +1,4 @@
-from parse import Word, quotedString, delimitedList, Infix, Literal
+from parse import Word, quotedString, delimitedList, Infix, Literal, IndentedBlock, Forward
 
 word = Word()
 print word.parse("sadasd11_%%", 0)
@@ -54,12 +54,25 @@ exprstmt = funccall | andexpr
 def exprstmt_action(tokens):
     print "pop"
     return tokens
-stmt = (returnexpr | exprstmt)
-stmts = delimitedList(stmt, Literal("\n").suppress())
+funcdef = Forward()
+primitivestmt = (returnexpr | exprstmt) + Literal("\n").suppress()
+exprstmt.set_action(exprstmt_action)
+stmt = funcdef | primitivestmt
+#stmts = delimitedList(stmt, Literal("\n").suppress())
 defparams = Literal('(').suppress() + delimitedList(Word(), Literal(",").suppress()) + Literal(")").suppress()
-funcdef = Word() + defparams + Literal('->\n') + stmts
+funcdef << Word() + defparams + Literal('->\n').suppress() + IndentedBlock(stmt)
+main = IndentedBlock(stmt)
 funcdef.parseString(
 """func1(a,b) ->
-func2(c)
-return a+b"""
+    func2(c)
+    return a+b
+"""
 )
+main.parseString(
+"""func1(a,b) ->
+    func2(c)
+    return a+b
+func1(c,d)
+"""
+)
+
