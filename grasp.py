@@ -1,20 +1,52 @@
-from parse import Word, quotedString, delimitedList, Infix, Literal, IndentedBlock, Forward
+from parse import Word, quotedString, delimitedList, Infix, Literal, IndentedBlock, Forward, Optional
+from StringIO import StringIO
+
+class Parser():
+    def __init__(self):
+        self.code = StringIO()
+        self.contexts = [{}]
+    def reset(self):
+        self.code = StringIO()
+        self.contexts = [{}]
+    def add_instruction(self, code):
+        self.code.write(code + "\n")
+    def __repr__(self):
+        return "code:\n%s" % self.code.getvalue()
+    def push_context(self):
+        self.contexts.append({})
+    def pop_context(self):
+        return self.contexts.pop()
+    def add_var(self, varname):
+        context = self.contexts[-1]
+        if varname not in context:
+            context[varname] = len(context)
+    def get_var(self, varname):
+        context = self.contexts[-1]
+        if varname not in context:
+            return -1
+        return context[varname]
 
 word = Word()
-print word.parse("sadasd11_%%", 0)
-print word.parseString("sadasd11_")
-print quotedString.parse("\"asdasdasd\"", 0)
-atom = word | quotedString
-print atom.parseString("sadasd")
-callparams = Literal('(').suppress() + delimitedList(atom, Literal(",").suppress()) + Literal(")").suppress()
+varname = Word()
+string = quotedString.copy()
+def varname_action(parser, tokens):
+    parser.add_var(tokens[0])
+    var_index = parser.get_var(tokens[0])
+    if var_index != -1:
+        parser.add_instruction("push %s" % var_index)
+    else:
+        parser.add_instruction("global %s" % varname)
+    return tokens
+varname.set_action(varname_action)
+def string_action(parser, tokens):
+    parser.add_instruction("str %s" % tokens[0])
+    return tokens
+string.set_action(string_action)
+atom = varname | string
+callparams = Literal('(').suppress() + Optional(delimitedList(atom, Literal(",").suppress())) + Literal(")").suppress()
 def infix_action(name):
-    def expr_action(tokens):
-        if len(tokens) > 1:
-            if not isinstance(tokens[0], list):
-                print "push " + tokens[0]
-            if not isinstance(tokens[2], list):
-                print "push " + tokens[2]
-            print name
+    def expr_action(parser, tokens):
+        parser.add_instruction(name)
         return tokens
     return expr_action
 divexpr = Infix(atom, Literal('/'))
@@ -23,56 +55,90 @@ mulexpr = Infix(divexpr, Literal('*'))
 mulexpr.set_action(infix_action("mul"))
 subexpr = Infix(mulexpr, Literal('-'))
 subexpr.set_action(infix_action("sub"))
-print subexpr.parseString("a-b")
-print subexpr.parseString("a-b-c")
 addexpr = Infix(subexpr, Literal('+'))
 addexpr.set_action(infix_action("add"))
-print addexpr.parseString("a-b+c*d/e")
 orexpr = Infix(addexpr, Literal('or'))
 orexpr.set_action(infix_action("or"))
 andexpr = Infix(orexpr, Literal('and'))
 andexpr.set_action(infix_action('and'))
-print andexpr.parseString("a-b+c*d/e or f and g")
 
 funccall = Word() + callparams
-def funccall_action(tokens):
-    if len(tokens) > 1:
-        print "\n".join(("push " + token for token in tokens[1:]))
-    print "call %s %s" % (tokens[0], len(tokens) - 1)
+def funccall_action(parser, tokens):
+    parser.add_instruction("call %s %s" % (tokens[0], len(tokens) - 1))
     return []
 funccall.set_action(funccall_action)
-print callparams.parseString("(\"str1\", \"str3\")")
-print funccall.parseString("func1(\"str1\", \"str3\")")
 returnexpr = Literal('return') + andexpr
-def return_action(tokens):
-    print "return"
+def return_action(parser, tokens):
+    parser.add_instruction("return")
     return tokens
 returnexpr.set_action(return_action)
-print returnexpr.parseString('return a+b')
 # return is first, expr can get return as identifier!!!
 exprstmt = funccall | andexpr
-def exprstmt_action(tokens):
-    print "pop"
+def exprstmt_action(parser, tokens):
+    parser.add_instruction("pop")
     return tokens
 funcdef = Forward()
 primitivestmt = (returnexpr | exprstmt) + Literal("\n").suppress()
 exprstmt.set_action(exprstmt_action)
 stmt = funcdef | primitivestmt
-#stmts = delimitedList(stmt, Literal("\n").suppress())
-defparams = Literal('(').suppress() + delimitedList(Word(), Literal(",").suppress()) + Literal(")").suppress()
-funcdef << Word() + defparams + Literal('->\n').suppress() + IndentedBlock(stmt)
+defparams = Literal('(').suppress() + Optional(delimitedList(Word(), Literal(",").suppress())) + Literal(")").suppress()
+def defparams_action(parser, tokens):
+    for param in tokens:
+        parser.add_var(param)
+    return tokens
+defparams.set_action(defparams_action)
+funcname = Word()
+def funcname_action(parser, tokens):
+    parser.add_instruction("function %s" % tokens[0])
+    return tokens
+funcname.set_action(funcname_action)
+funcdef << funcname + defparams + Literal('->\n').suppress() + IndentedBlock(stmt)
+def funcdef_action(parser, tokens):
+    parser.add_instruction("endfunction")
+    parser.pop_context()
+    return tokens
+def funcdef_preparse_action(parser):
+    parser.push_context()
+
+funcdef.set_pre_parse_action(funcdef_preparse_action)
+funcdef.set_action(funcdef_action)
 main = IndentedBlock(stmt)
+parser = Parser()
+main.setup(parser)
+subexpr.parseString("a-b")
+print parser
+parser.reset()
+subexpr.parseString("a-b-c")
+print parser
+parser.reset()
+addexpr.parseString("a-b+c*d/e")
+print parser
+parser.reset()
+andexpr.parseString("a-b+c*d/e or f and g")
+print parser
+parser.reset()
+callparams.parseString("(\"str1\", \"str3\")")
+print parser
+parser.reset()
+funccall.parseString("func1(\"str1\", \"str3\")")
+print parser
+parser.reset()
+returnexpr.parseString('return a+b')
+print parser
+parser.reset()
 funcdef.parseString(
 """func1(a,b) ->
     func2(c)
     return a+b
 """
 )
+print parser
+parser.reset()
 main.parseString(
 """func1(a,b) ->
-    func2(c)
+    func2()
     return a+b
 func1(c,d)
 """
 )
-
+print parser
