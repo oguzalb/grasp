@@ -1,4 +1,4 @@
-from parse import Word, quotedString, delimitedList, Infix, Literal, IndentedBlock, Forward, Optional
+from parse import Word, quotedString, delimitedList, Infix, Literal, IndentedBlock, Forward, Optional, Regex, Group
 from StringIO import StringIO
 
 class Parser():
@@ -12,6 +12,8 @@ class Parser():
         self.code.write(code + "\n")
     def __repr__(self):
         return "code:\n%s" % self.code.getvalue()
+    def dumpcode(self):
+        return self.code.getvalue()
     def push_context(self):
         self.contexts.append({})
     def pop_context(self):
@@ -25,31 +27,42 @@ class Parser():
         if varname not in context:
             return -1
         return context[varname]
-
+    def __str__(self):
+        return self.__repr__()
 word = Word()
 varname = Word()
 string = quotedString.copy()
 def varname_action(parser, tokens):
-    parser.add_var(tokens[0])
     var_index = parser.get_var(tokens[0])
     if var_index != -1:
-        parser.add_instruction("push %s" % var_index)
+        parser.add_instruction("pushlocal %s" % var_index)
     else:
-        parser.add_instruction("global %s" % varname)
+        parser.add_instruction("pushglobal %s" % tokens[0])
     return tokens
 varname.set_action(varname_action)
 def string_action(parser, tokens):
     parser.add_instruction("str %s" % tokens[0])
     return tokens
 string.set_action(string_action)
-atom = varname | string
+number = Regex("\w+")
+def number_action(parser, tokens):
+    parser.add_instruction("int %s" % tokens[0])
+    return tokens
+number.set_action(number_action)
+atom = varname | string | number
 callparams = Literal('(').suppress() + Optional(delimitedList(atom, Literal(",").suppress())) + Literal(")").suppress()
 def infix_action(name):
     def expr_action(parser, tokens):
+        print "%s:%s" % (name, tokens)
         parser.add_instruction(name)
         return tokens
     return expr_action
-divexpr = Infix(atom, Literal('/'))
+def funccall_action(parser, tokens):
+    parser.add_instruction("call %s" % (len(tokens)))
+    return tokens
+callparams.set_action(funccall_action)
+trailer = varname + Optional(callparams)
+divexpr = Infix(trailer, Literal('/'))
 divexpr.set_action(infix_action("div"))
 mulexpr = Infix(divexpr, Literal('*'))
 mulexpr.set_action(infix_action("mul"))
@@ -62,18 +75,13 @@ orexpr.set_action(infix_action("or"))
 andexpr = Infix(orexpr, Literal('and'))
 andexpr.set_action(infix_action('and'))
 
-funccall = Word() + callparams
-def funccall_action(parser, tokens):
-    parser.add_instruction("call %s %s" % (tokens[0], len(tokens) - 1))
-    return []
-funccall.set_action(funccall_action)
 returnexpr = Literal('return') + andexpr
 def return_action(parser, tokens):
     parser.add_instruction("return")
     return tokens
 returnexpr.set_action(return_action)
 # return is first, expr can get return as identifier!!!
-exprstmt = funccall | andexpr
+exprstmt = Group(andexpr)
 def exprstmt_action(parser, tokens):
     parser.add_instruction("pop")
     return tokens
@@ -89,12 +97,13 @@ def defparams_action(parser, tokens):
 defparams.set_action(defparams_action)
 funcname = Word()
 def funcname_action(parser, tokens):
-    parser.add_instruction("function %s" % tokens[0])
+    parser.add_instruction("function")
     return tokens
 funcname.set_action(funcname_action)
 funcdef << funcname + defparams + Literal('->\n').suppress() + IndentedBlock(stmt)
 def funcdef_action(parser, tokens):
     parser.add_instruction("endfunction")
+    parser.add_instruction("setglobal %s" % tokens[0])
     parser.pop_context()
     return tokens
 def funcdef_preparse_action(parser):
@@ -120,7 +129,7 @@ parser.reset()
 callparams.parseString("(\"str1\", \"str3\")")
 print parser
 parser.reset()
-funccall.parseString("func1(\"str1\", \"str3\")")
+andexpr.parseString("func1(\"str1\", \"str3\")")
 print parser
 parser.reset()
 returnexpr.parseString('return a+b')
@@ -142,3 +151,14 @@ func1(c,d)
 """
 )
 print parser
+parser.reset()
+main.parseString(
+"""func1(a,b) ->
+    return a+b
+func1(1,2)
+"""
+)
+
+with open("test.graspo", "w") as f:
+    f.write(parser.dumpcode())
+    f.close()

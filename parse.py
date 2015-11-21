@@ -29,6 +29,8 @@ def pass_space(text, i):
     return i
 
 class Token():
+    def __init__(self):
+        pass
     def parseString(self, text):
         print "Parsing:\n%s" % text
         tokens, i = self.parse(text, 0)
@@ -116,6 +118,9 @@ class Regex(Token):
         return Regex(self.pattern)
 
 class Forward(Token):
+    def __init__(self):
+        Token.__init__(self)
+        self.copies = []
     def parse(self, text, i, test=False):
         if hasattr(self, 'pre_parse_action') and not test:
             self.pre_parse_action(self.parser)
@@ -170,23 +175,21 @@ class Infix(Token):
             self.pre_parse_action(self.parser)
         results = []
         result, i = self.operand.parse(text, i, test)
-        if len(result) == 1:
-            results.extend(result)
-        else:
-            results.append(result)
+        results.extend(result)
+        process = False
         while True:
             try:
                 result, i = self.operator.parse(text, i, test)
+                process = True
                 results.extend(result)
             except ParseError as e:
-                return results[0] if len(results) == 1 else results, i
+                return self.process(results, i, test) if process else results, i
             result, i = self.operand.parse(text, i, test)
-            if len(result) == 1:
-                results.extend(result)
-            else:
-                results.append(result)
-            results, i = self.process(results, i, test)
+            results.extend(result)
             results = [results]
+    def copy(self):
+        i = Infix(self.operand, self.operator)
+        return i
 class Optional(Token):
     def __init__(self, token):
         self.token = token
@@ -195,7 +198,8 @@ class Optional(Token):
         if hasattr(self, 'pre_parse_action') and not test:
             self.pre_parse_action(self.parser)
         try:
-            return self.process(*self.token.parse(text, i, test), test=test)
+            result = self.process(*self.token.parse(text, i, test), test=test)
+            return result
         except ParseError:
             return [], i
 
