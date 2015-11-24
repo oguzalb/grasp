@@ -50,15 +50,14 @@ def number_action(parser, tokens):
     return tokens
 number.set_action(number_action)
 atom = varname | string | number
-callparams = Literal('(').suppress() + Optional(delimitedList(atom, Literal(",").suppress())) + Literal(")").suppress()
+callparams = Literal('(') + Optional(delimitedList(atom, Literal(","))) + Literal(")")
 def infix_action(name):
     def expr_action(parser, tokens):
-        print "%s:%s" % (name, tokens)
         parser.add_instruction(name)
         return tokens
     return expr_action
 def funccall_action(parser, tokens):
-    parser.add_instruction("call %s" % (len(tokens)))
+    parser.add_instruction("call %s" % (len(tokens[1]) if tokens[1] else 0))
     return tokens
 callparams.set_action(funccall_action)
 trailer = varname + Optional(callparams)
@@ -86,56 +85,58 @@ def exprstmt_action(parser, tokens):
     parser.add_instruction("pop")
     return tokens
 funcdef = Forward()
-primitivestmt = (returnexpr | exprstmt) + Literal("\n").suppress()
+primitivestmt = (returnexpr | exprstmt) + Literal("\n")
 exprstmt.set_action(exprstmt_action)
 stmt = funcdef | primitivestmt
-defparams = Literal('(').suppress() + Optional(delimitedList(Word(), Literal(",").suppress())) + Literal(")").suppress()
+defparams = Literal('(') + Optional(delimitedList(Word(), Literal(","))) + Literal(")")
 def defparams_action(parser, tokens):
-    for param in tokens:
+    for param in tokens[1]:
         parser.add_var(param)
     return tokens
 defparams.set_action(defparams_action)
 funcname = Word()
 def funcname_action(parser, tokens):
     parser.add_instruction("function")
+    parser.push_context()
     return tokens
 funcname.set_action(funcname_action)
-funcdef << funcname + defparams + Literal('->\n').suppress() + IndentedBlock(stmt)
+funcdef << funcname + defparams + Literal('->\n') + IndentedBlock(stmt)
 def funcdef_action(parser, tokens):
     parser.add_instruction("endfunction")
-    parser.add_instruction("setglobal %s" % tokens[0])
+    parser.add_instruction("setglobal %s" % tokens[0][0])
     parser.pop_context()
     return tokens
-def funcdef_preparse_action(parser):
-    parser.push_context()
-
-funcdef.set_pre_parse_action(funcdef_preparse_action)
 funcdef.set_action(funcdef_action)
 main = IndentedBlock(stmt)
 parser = Parser()
-main.setup(parser)
-subexpr.parseString("a-b")
+print varname.parseString(parser, "asdasd")
 print parser
 parser.reset()
-subexpr.parseString("a-b-c")
+print trailer.parseString(parser, "asdasd")
 print parser
 parser.reset()
-addexpr.parseString("a-b+c*d/e")
+divexpr.parseString(parser, "a/b")
 print parser
 parser.reset()
-andexpr.parseString("a-b+c*d/e or f and g")
+subexpr.parseString(parser, "a-b-c")
 print parser
 parser.reset()
-callparams.parseString("(\"str1\", \"str3\")")
+addexpr.parseString(parser, "a-b+c*d/e")
 print parser
 parser.reset()
-andexpr.parseString("func1(\"str1\", \"str3\")")
+andexpr.parseString(parser, "a-b+c*d/e or f and g")
 print parser
 parser.reset()
-returnexpr.parseString('return a+b')
+callparams.parseString(parser, "(\"str1\", \"str3\")")
 print parser
 parser.reset()
-funcdef.parseString(
+andexpr.parseString(parser, "func1(\"str1\", \"str3\")")
+print parser
+parser.reset()
+returnexpr.parseString(parser, 'return a+b')
+print parser
+parser.reset()
+funcdef.parseString(parser,
 """func1(a,b) ->
     func2(c)
     return a+b
@@ -143,7 +144,7 @@ funcdef.parseString(
 )
 print parser
 parser.reset()
-main.parseString(
+main.parseString(parser,
 """func1(a,b) ->
     func2()
     return a+b
@@ -152,13 +153,13 @@ func1(c,d)
 )
 print parser
 parser.reset()
-main.parseString(
+main.parseString(parser,
 """func1(a,b) ->
     return a+b
 func1(1,2)
 """
 )
-
+print parser
 with open("test.graspo", "w") as f:
     f.write(parser.dumpcode())
     f.close()

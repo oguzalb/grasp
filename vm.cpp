@@ -6,6 +6,7 @@ void newint(int ival) {
     Object *o = new Object;
     o->type = INT_TYPE;
     o->ival = ival;
+    cout << "newint: " << ival << endl;
     gstack.push_back(o);
 }
 
@@ -26,6 +27,7 @@ void newfunc(std::stringstream *code) {
 void interpret_block(std::stringstream& fs);
 
 void call(int param_count) {
+    // TODO stuff about param_count
     bp = gstack.size() - param_count;
     Object *func = gstack.at(bp - 1);
     // TODO exc
