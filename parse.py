@@ -85,7 +85,7 @@ class Or(Token):
             except ParseError as e:
                 pass
         raise ParseError("None of alternatives %s. rest: |%s|" % (i, text[i:]))
-
+    
 
 import re
 class Regex(Token):
@@ -156,6 +156,15 @@ class Literal(Token):
         result.extend(self.literal)
         return result, i
 
+
+class LookAheadLiteral(Literal):
+    def __init__(self, literal):
+        Literal.__init__(self, literal)
+        self.literal = literal
+    def parse(self, text, i):
+        result, _ = Literal.parse(self, text, i)
+        return result, i
+
 class Infix(Token):
     def __init__(self, operand, operator):
         Token.__init__(self)
@@ -181,14 +190,67 @@ class Infix(Token):
     def copy(self):
         i = Infix(self.operand, self.operator)
         return i
+
+class Postfix(Token):
+    def __init__(self, operator):
+        Token.__init__(self)
+        self.operator = operator
+    def parse(self, text, i):
+        results = Atom()
+        results.set_action(self.action)
+        result, i = self.operator.parse(text, i)
+        results.append(result)
+        while True:
+            atom = Atom()
+            atom.set_action(self.action)
+            atom.append(results)
+            results = atom
+            try:
+                result, i = self.operator.parse(text, i)
+                results.append(result)
+            except ParseError as e:
+                # parse error may be no alternative or sth, should be reconsidered
+                return results[0], i
+
+class PostfixWithoutLast(Token):
+    def __init__(self, operator):
+        Token.__init__(self)
+        self.operator = operator
+    def parse(self, text, i):
+        results = Atom()
+        results.set_action(self.action)
+        indexes = [i]
+        result, i = self.operator.parse(text, i)
+        indexes.append(i)
+        results.append(result)
+        while True:
+            atom = Atom()
+            atom.set_action(self.action)
+            atom.append(results)
+            results = atom
+            try:
+                result, i = self.operator.parse(text, i)
+                indexes.append(i)
+                results.append(result)
+            except ParseError as e:
+                # parse error may be no alternative or sth, should be reconsidered
+                if len(indexes) > 2:
+                    return results[0][0], indexes[-2]
+                else:
+                    return Atom(single=True), indexes[0]
+
+       
 class Optional(Token):
     def __init__(self, token):
         Token.__init__(self)
         self.token = token
     def parse(self, text, i):
         try:
-            result = self.token.parse(text, i)
-            return result
+            result, i = self.token.parse(text, i)
+            results = Atom(single=True)
+            results.set_action(self.action)
+            results.append(result)
+            return results, i
         except ParseError:
             return Atom(single=True), i
 
@@ -223,6 +285,7 @@ class Group(Token):
         self.token = token
     def parse(self, text, i):
         results = Atom(single=True)
+        results.set_action(self.action)
         result, i = self.token.parse(text, i)
         results.append(result)
         return results, i

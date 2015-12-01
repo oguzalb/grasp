@@ -15,8 +15,8 @@ class Object {
     int type;
     string sval;
     int ival;
-    std::unordered_map<string, Function *> fields;
-    void add_method(string name, Function* function);
+    std::unordered_map<string, Object *> fields;
+    void setfield(string name, Object* object);
 };
 
 class Function : public Object {

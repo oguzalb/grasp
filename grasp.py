@@ -1,4 +1,4 @@
-from parse import Word, quotedString, delimitedList, Infix, Literal, IndentedBlock, Forward, Optional, Regex, Group
+from parse import Word, quotedString, delimitedList, Infix, Literal, IndentedBlock, Forward, Optional, Regex, Group, Postfix, LookAheadLiteral, PostfixWithoutLast
 from StringIO import StringIO
 
 class Parser():
@@ -73,7 +73,21 @@ def funccall_action(parser, tokens):
     parser.add_instruction("call %s" % (len(tokens[1]) if tokens[1] else 0))
     return tokens
 callparams.set_action(funccall_action)
-trailer = varname + Optional(callparams)
+access_op = Literal(".")
+def accessor_action(parser, tokens):
+    parser.add_instruction("str " + tokens[0][1])
+    parser.add_instruction("access")
+    return tokens
+fieldname = Word()
+accessor = PostfixWithoutLast(access_op + fieldname)
+accessor.set_action(accessor_action)
+last_accessor = Group(access_op + fieldname)
+last_accessor.set_action(accessor_action)
+access = atom + Optional(accessor) + Optional(last_accessor)
+def access_action(parser, tokens):
+    return tokens
+access.set_action(access_action)
+trailer = access + Optional(callparams)
 divexpr = Infix(trailer, Literal('/'))
 divexpr.set_action(infix_action("div"))
 mulexpr = Infix(divexpr, Literal('*'))
@@ -100,7 +114,16 @@ def exprstmt_action(parser, tokens):
 funcdef = Forward()
 primitivestmt = (returnexpr | exprstmt) + Literal("\n")
 exprstmt.set_action(exprstmt_action)
-stmt = funcdef | primitivestmt
+rightvalue = Group(andexpr)
+setfield = access_op + fieldname
+assgmt = varname + Optional(accessor) + Optional(setfield) + Literal("=") + Group(andexpr) + Literal("\n")
+def assgmt_action(parser, tokens):
+    parser.add_instruction("str " + tokens[2][1])
+    parser.add_instruction("swp")
+    parser.add_instruction("setfield")
+    return tokens
+assgmt.set_action(assgmt_action)
+stmt = funcdef | assgmt | primitivestmt
 defparams = Literal('(') + Optional(delimitedList(Word(), Literal(","))) + Literal(")")
 def defparams_action(parser, tokens):
     for param in tokens[1]:
@@ -172,9 +195,18 @@ func1(c,d)
 print parser
 parser.reset()
 main.parseString(parser,
+"""func1(a) ->
+    return a.b.c
+func1(1)
+"""
+)
+print parser
+parser.reset()
+main.parseString(parser,
 """func1(a,b) ->
     return a+b
 func1(1,2)
+func1.b = 1
 """
 )
 print parser

@@ -1,12 +1,24 @@
 #include "vm.h"
 #include "assert.h"
-enum {INT_TYPE, FUNC_TYPE, NONE_TYPE};
+enum {INT_TYPE, FUNC_TYPE, NONE_TYPE, STR_TYPE};
+
+void Object::setfield(string name, Object* object) {
+    this->fields.insert({name, object});
+}
 
 void newint(int ival) {
     Object *o = new Object;
     o->type = INT_TYPE;
     o->ival = ival;
     cout << "newint: " << ival << endl;
+    gstack.push_back(o);
+}
+
+void newstr(string sval) {
+    Object *o = new Object;
+    o->type = STR_TYPE;
+    o->sval = sval;
+    cout << "newstr: " << sval << endl;
     gstack.push_back(o);
 }
 
@@ -76,7 +88,28 @@ void div() {
     gstack.pop_back();
     // TODO exc
     newint(o2->ival / o1->ival);
-} 
+}
+
+void swp() {
+    Object *o1 = gstack.back();
+    gstack.pop_back();
+    Object *o2 = gstack.back();
+    gstack.pop_back();
+    gstack.push_back(o1);
+    gstack.push_back(o2);
+}
+
+void setfield() {
+    Object *o1 = gstack.back();
+    gstack.pop_back();
+    Object *o2 = gstack.back();
+    gstack.pop_back();
+    Object *o3 = gstack.back();
+    gstack.pop_back();
+    o1->setfield(o2->sval, o3);
+    cout << "field set" << endl;
+}
+ 
 
 void setglobal(string name) {
     globals[name] = gstack.back();
@@ -126,7 +159,6 @@ std::vector<std::string> *read_func_code(std::vector<std::string> &codes) {
 }
 
 void interpret_block(std::vector<std::string> &codes) {
-    string line;
     int ret = FALSE;
     while (ip < codes.size()) {
         string command;
@@ -157,6 +189,10 @@ void interpret_block(std::vector<std::string> &codes) {
             ss >> ival;
 // TODO check
             newint(ival);
+        } else if (command == "str") {
+            string sval = ss.str();
+// TODO check
+            newstr(sval);
         } else if (command == "call") {
             int count;
             ss >> count;
@@ -202,6 +238,12 @@ void interpret_block(std::vector<std::string> &codes) {
         } else if (command == "div") {
             cout << "div" << endl;
             div();
+        } else if (command == "swp") {
+            cout << "swp" << endl;
+            swp();
+        } else if (command == "setfield") {
+            cout << "setfield" << endl;
+            setfield();
         } else if (command == "jmp") {
             string label;
             ss >> label;
@@ -224,7 +266,7 @@ void read_codes(std::stringstream& fs, std::vector<std::string>& codes) {
     int index;
     int ip = 0;
     while (std::getline(fs, line)) {
-        if (index = line.find(":")) {
+        if ((index = line.find(":"))) {
             labels.insert({line.substr(0, index), ip});
             line = line.substr(index+1);
         }
