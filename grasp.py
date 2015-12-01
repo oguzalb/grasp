@@ -5,15 +5,28 @@ class Parser():
     def __init__(self):
         self.code = StringIO()
         self.contexts = [{}]
+        self.label_counter = 0
+        self.next_label = None
     def reset(self):
         self.code = StringIO()
         self.contexts = [{}]
+        self.label_counter = 0
+        self.next_label = None
     def add_instruction(self, code):
-        self.code.write(code + "\n")
+        if self.next_label:
+            self.code.write(self.next_label + ":" + code + "\n")
+            self.next_label = None
+        else:
+            self.code.write(code + "\n")
+    def new_label(self):
+        self.label_counter += 1
+        return "l"+str(self.label_counter)
+    def set_next_label(self, label):
+        self.next_label = label
     def __repr__(self):
         return "code:\n%s" % self.code.getvalue()
     def dumpcode(self):
-        return self.code.getvalue()
+        return self.code.getvalue() + "" if not self.next_label else self.next_label + ":nop"
     def push_context(self):
         self.contexts.append({})
     def pop_context(self):
@@ -96,14 +109,19 @@ def defparams_action(parser, tokens):
 defparams.set_action(defparams_action)
 funcname = Word()
 def funcname_action(parser, tokens):
-    parser.add_instruction("function")
+    endlabel = parser.new_label()
+    parser.add_instruction("jmp " + endlabel)
+    startlabel = parser.new_label()
+    parser.set_next_label(startlabel)
     parser.push_context()
-    return tokens
+    return [[tokens[0], startlabel, endlabel]]
 funcname.set_action(funcname_action)
 funcdef << funcname + defparams + Literal('->\n') + IndentedBlock(stmt)
 def funcdef_action(parser, tokens):
-    parser.add_instruction("endfunction")
-    parser.add_instruction("setglobal %s" % tokens[0][0])
+    # TODO this return value issue should be fixed on parse lib
+    parser.set_next_label(tokens[0][0][2])
+    parser.add_instruction("function %s" % tokens[0][0][1])
+    parser.add_instruction("setglobal %s" % tokens[0][0][0])
     parser.pop_context()
     return tokens
 funcdef.set_action(funcdef_action)

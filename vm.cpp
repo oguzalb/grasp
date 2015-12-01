@@ -17,29 +17,32 @@ void newnone() {
     gstack.push_back(o);
 }
 
-void newfunc(std::stringstream *code) {
-    Object *o = new Object;
+void newfunc(int startp) {
+    Function *o = new Function;
     o->type = FUNC_TYPE;
-    o->code = code;
+    o->codep = startp;
     gstack.push_back(o);
 }
 
-void interpret_block(std::stringstream& fs);
+void interpret_block(std::vector<std::string>& codes);
 
-void call(int param_count) {
+void call(std::vector<std::string>& codes, int param_count) {
     // TODO stuff about param_count
     bp = gstack.size() - param_count;
-    Object *func = gstack.at(bp - 1);
+    Function *func = (Function *)gstack.at(bp - 1);
     // TODO exc
     assert(func->type == FUNC_TYPE);
-    interpret_block(*(func->code));
+    int cur_ip = ip;
+    ip = func->codep;
+    interpret_block(codes);
     Object *result = gstack.back();
     gstack.pop_back();
     gstack.resize(gstack.size() - param_count);
-    func = gstack.back();
+    func = (Function *)gstack.back();
     assert(func->type == FUNC_TYPE);
     gstack.pop_back();
     gstack.push_back(result);
+    ip = cur_ip;
 } 
 
 void add() {
@@ -109,25 +112,26 @@ void pushlocal(int ival) {
     gstack.push_back(gstack[bp + ival]);
 }
 
-std::stringstream *read_func_code(std::stringstream& fs, string name) {
+std::vector<std::string> *read_func_code(std::vector<std::string> &codes) {
     std::stringstream ss;
     ss << "endfunction";
     std::string endcommand = ss.str();
-    std::stringstream *funccode = new std::stringstream;
+    std::vector<std::string> *funccode = new std::vector<std::string>;
     string line;
-    while (getline(fs, line) && line != endcommand) {
-        *funccode << line << endl;
+    while (ip < codes.size() && (line = codes[ip]) != endcommand) {
+        funccode->push_back(line);
+        ip++;
     }
     return funccode;
 }
 
-void interpret_block(std::stringstream& fs) {
+void interpret_block(std::vector<std::string> &codes) {
     string line;
     int ret = FALSE;
-    while (getline(fs, line)) {
+    while (ip < codes.size()) {
         string command;
         string param;
-        std::stringstream ss(line);
+        std::stringstream ss(codes[ip]);
         ss >> command;
         if (command == "pop") {
             Object *val = gstack.back();
@@ -138,23 +142,26 @@ void interpret_block(std::stringstream& fs) {
             gstack.pop_back();
         } else if (command == "function") {
             string name;
-            ss >> name;
-            cout << "function " << name << endl;
 // TODO check
-            std::stringstream *code = read_func_code(fs, name);
-            cout << "function code read " << name << endl;
-            newfunc(code);
+            int startp;
+            string startlabel;
+            ss >> startlabel;
+            // TODO sanity check
+            startp = labels.at(startlabel);
+            cout << "function code read " << startp << endl;
+// TODO
+            newfunc(startp);
+            cout << "next: " << codes[ip] << endl;
         } else if (command == "int") {
             int ival;
             ss >> ival;
 // TODO check
-            cout << "newint " << ival << endl;
             newint(ival);
         } else if (command == "call") {
-            int base;
-            ss >> base;
-            cout << "call " << base <<endl;
-            call(base);
+            int count;
+            ss >> count;
+            cout << "call " << count <<endl;
+            call(codes, count);
 // TODO check
         } else if (command == "return") {
             cout << "return " << endl;
@@ -164,15 +171,15 @@ void interpret_block(std::stringstream& fs) {
         } else if (command == "pushlocal") {
             int lindex;
             ss >> lindex;
-            cout << "pushlocal " << lindex << endl;
 // TODO check
+            cout << "pushlocal " << lindex << endl;
             pushlocal(lindex);
         } else if (command == "pushglobal") {
             string name;
             ss >> name;
 // TODO check
-            pushglobal(name);
             cout << "pushglobal " << name << endl;
+            pushglobal(name);
         } else if (command == "setlocal") {
             int lindex;
             ss >> lindex;
@@ -195,12 +202,35 @@ void interpret_block(std::stringstream& fs) {
         } else if (command == "div") {
             cout << "div" << endl;
             div();
+        } else if (command == "jmp") {
+            string label;
+            ss >> label;
+            int location = labels.at(label);
+// TODO check
+            cout << "jmp " << location << endl;
+            ip = location-1; // will increase at the end of loop
         } else {
             cerr << "command not defined" << command << endl;
+            throw std::exception();
         }
+        ip++;
     }
     if (ret == FALSE)
         newnone();
+}
+
+void read_codes(std::stringstream& fs, std::vector<std::string>& codes) {
+    std::string line;
+    int index;
+    int ip = 0;
+    while (std::getline(fs, line)) {
+        if (index = line.find(":")) {
+            labels.insert({line.substr(0, index), ip});
+            line = line.substr(index+1);
+        }
+        codes.push_back(line);
+        ip++;
+    }
 }
 
 int main () {
@@ -210,6 +240,9 @@ int main () {
     copy(istreambuf_iterator<char>(fs),
      istreambuf_iterator<char>(),
      ostreambuf_iterator<char>(ss));
-    interpret_block(ss);
+    std::vector<std::string> codes;
+    read_codes(ss, codes);
+    ip = 0;
+    interpret_block(codes);
     return 0;
 }

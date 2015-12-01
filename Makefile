@@ -1,5 +1,5 @@
-LIBS=`pkg-config --cflags glib-2.0` `pkg-config --libs glib-2.0`
-FLAGS=-std=c++11
+LIBS=
+FLAGS=-std=c++0x
 all:
 	g++ vm.cpp -o vm.out ${LIBS} ${FLAGS}
 test: all
