@@ -3,7 +3,7 @@ Parser written with python which complies with API of pyparsing, will contain a 
 === STILL TRYING STUFF, AWFULL CODE ===
 
 
-The grasp grammar is something like python with coffeescript style func definition
+The grasp grammar is something like python with arrow function definition
 
 now it can just parse
 add(a, b) ->
