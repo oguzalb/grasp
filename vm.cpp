@@ -6,6 +6,12 @@ void Object::setfield(string name, Object* object) {
     this->fields.insert({name, object});
 }
 
+Object *Object::getfield(string name) {
+// TODO exceptions
+    return this->fields.at(name);
+}
+
+
 void newint(int ival) {
     Object *o = new Object;
     o->type = INT_TYPE;
@@ -106,8 +112,20 @@ void setfield() {
     gstack.pop_back();
     Object *o3 = gstack.back();
     gstack.pop_back();
-    o1->setfield(o2->sval, o3);
-    cout << "field set" << endl;
+    o3->setfield(o2->sval, o1);
+    cout << "field set: " << o2->sval << endl;
+}
+
+void getfield() {
+    Object *o1 = gstack.back();
+cout << "object type" << o1->type << endl;
+    gstack.pop_back();
+    Object *o2 = gstack.back();
+cout << "object type" << o2->type << endl;
+    gstack.pop_back();
+    Object *field =o2->getfield(o1->sval);
+    gstack.push_back(field);
+    cout << "field pushed" << endl;
 }
  
 
@@ -190,7 +208,7 @@ void interpret_block(std::vector<std::string> &codes) {
 // TODO check
             newint(ival);
         } else if (command == "str") {
-            string sval = ss.str();
+            string sval = ss.str().substr(4);
 // TODO check
             newstr(sval);
         } else if (command == "call") {
@@ -241,6 +259,9 @@ void interpret_block(std::vector<std::string> &codes) {
         } else if (command == "swp") {
             cout << "swp" << endl;
             swp();
+        } else if (command == "getfield") {
+            cout << "getfield" << endl;
+            getfield();
         } else if (command == "setfield") {
             cout << "setfield" << endl;
             setfield();

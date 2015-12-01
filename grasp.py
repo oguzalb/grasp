@@ -76,7 +76,7 @@ callparams.set_action(funccall_action)
 access_op = Literal(".")
 def accessor_action(parser, tokens):
     parser.add_instruction("str " + tokens[0][1])
-    parser.add_instruction("access")
+    parser.add_instruction("getfield")
     return tokens
 fieldname = Word()
 accessor = PostfixWithoutLast(access_op + fieldname)
@@ -205,8 +205,8 @@ parser.reset()
 main.parseString(parser,
 """func1(a,b) ->
     return a+b
-func1(1,2)
-func1.b = 1
+func1.func = func1
+func1.func(1,2)
 """
 )
 print parser

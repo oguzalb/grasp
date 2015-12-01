@@ -17,6 +17,7 @@ class Object {
     int ival;
     std::unordered_map<string, Object *> fields;
     void setfield(string name, Object* object);
+    Object *getfield(string name);
 };
 
 class Function : public Object {
