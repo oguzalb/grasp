@@ -284,6 +284,8 @@ void interpret_block(std::vector<std::string> &codes) {
         } else if (command == "swp") {
             cout << "swp" << endl;
             swp();
+        } else if (command == "nop") {
+            cout << "nop" << endl;
         } else if (command == "equals") {
             cout << "equals" << endl;
             equals();

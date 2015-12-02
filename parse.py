@@ -21,21 +21,37 @@ def default_action(parser, value):
     return value
 
 class Atom(list):
-    def __init__(self, single=False):
+    def __init__(self, single=False, pass_params=None):
+        if pass_params is None:
+            pass_params = []
+        self.pass_params = pass_params
         self.action = default_action
         self.single = single
     def set_action(self, action):
         if action is not None:
             self.action = action
-    def process(self, parser):
-        results =  [c if isinstance(c, str) else c.process(parser) for c in self]
-        result = self.action(parser, results)
+    def process(self, parser, additional_params=None):
+        if additional_params is None:
+            additional_params = []
+        results = []
+        for c in self:
+            if isinstance(c, str):
+                results.append(c)
+            else:
+                adds = []
+                if c.pass_params:
+                    adds.extend((results[i] for i in c.pass_params))
+                results.append(c.process(parser, additional_params=adds))
+        result = self.action(parser, results + additional_params)
         if not self.single:
             return result
         return result[0] if len(result) else None
 
 class Token():
-    def __init__(self):
+    def __init__(self, pass_params=None):
+        if pass_params is None:
+            pass_params = []
+        self.pass_params = pass_params
         self.action = None
     def parseString(self, parser, text):
         print text
@@ -50,6 +66,15 @@ class Token():
         return And(self, token)
     def set_action(self, action):
         self.action = action
+
+class Action(Token):
+    def __init__(self, **kwargs):
+        # change all
+        Token.__init__(self, **kwargs)
+    def parse(self, text, i):
+        results = Atom(pass_params=self.pass_params)
+        results.set_action(self.action)
+        return results, i
 
 class And(Token):
     def __init__(self, token, token2):

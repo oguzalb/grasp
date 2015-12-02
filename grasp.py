@@ -1,4 +1,4 @@
-from parse import Word, quotedString, delimitedList, Infix, Literal, IndentedBlock, Forward, Optional, Regex, Group, Postfix, LookAheadLiteral, PostfixWithoutLast
+from parse import Word, quotedString, delimitedList, Infix, Literal, IndentedBlock, Forward, Optional, Regex, Group, Postfix, LookAheadLiteral, PostfixWithoutLast, Action
 from StringIO import StringIO
 
 class Parser():
@@ -22,6 +22,8 @@ class Parser():
         self.label_counter += 1
         return "l"+str(self.label_counter)
     def set_next_label(self, label):
+        if self.next_label is not None:
+            self.add_instruction("nop")
         self.next_label = label
     def __repr__(self):
         return "code:\n%s" % self.code.getvalue()
@@ -138,14 +140,26 @@ assgmt.set_action(assgmt_action)
 stmt = Forward()
 ifexpr = Group(andexpr)
 def ifexpr_action(parser, tokens):
-    ifend = parser.new_label()
-    parser.add_instruction("jnt %s" % ifend)
-    return [ifend]
+    partend = parser.new_label()
+    parser.add_instruction("jnt %s" % partend)
+    return [partend]
 ifexpr.set_action(ifexpr_action)
-ifstmt = Literal("if") + ifexpr + Literal("\n") + IndentedBlock(stmt)
+
+jmp_to_end = Action(pass_params=[0, 1])
+def jmp_to_end_action(parser, tokens):
+    parser.add_instruction("jmp %s" % tokens[0])
+    parser.set_next_label(tokens[1])
+    return tokens
+jmp_to_end.set_action(jmp_to_end_action)
+if_start = Literal("if")
+def if_start_action(parser, tokens):
+    ifend = parser.new_label()
+    return [ifend]
+if_start.set_action(if_start_action)
+ifstmt = if_start + ifexpr + Literal("\n") + IndentedBlock(stmt) + jmp_to_end
 def ifstmt_action(parser, tokens):
     blockend = parser.new_label()
-    parser.set_next_label(tokens[1])
+    parser.set_next_label(tokens[0])
     return tokens
 ifstmt.set_action(ifstmt_action)
 stmt << (funcdef | assgmt | simpleassgmt | primitivestmt | ifstmt)
