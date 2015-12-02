@@ -1,6 +1,6 @@
 #include "vm.h"
 #include "assert.h"
-enum {INT_TYPE, FUNC_TYPE, NONE_TYPE, STR_TYPE};
+enum {INT_TYPE, FUNC_TYPE, NONE_TYPE, STR_TYPE, BOOL_TYPE};
 
 void Object::setfield(string name, Object* object) {
     this->fields.insert({name, object});
@@ -11,6 +11,16 @@ Object *Object::getfield(string name) {
     return this->fields.at(name);
 }
 
+Bool *trueobject;
+Bool *falseobject;
+
+Bool *newbool_internal(int bval) {
+    Bool *o = new Bool;
+    o->type = BOOL_TYPE;
+    o->bval = bval;
+    cout << "newbool: " << bval << endl;
+    return o;
+}
 
 void newint(int ival) {
     Object *o = new Object;
@@ -70,7 +80,8 @@ void add() {
     gstack.pop_back();
     // TODO exc
     newint(o1->ival + o2->ival);
-} 
+}
+ 
 void sub() {
     Object *o1 = gstack.back();
     gstack.pop_back();
@@ -78,7 +89,8 @@ void sub() {
     gstack.pop_back();
     // TODO exc
     newint(o1->ival - o2->ival);
-} 
+}
+ 
 void mul() {
     Object *o1 = gstack.back();
     gstack.pop_back();
@@ -86,7 +98,8 @@ void mul() {
     gstack.pop_back();
     // TODO exc
     newint(o1->ival * o2->ival);
-} 
+}
+ 
 void div() {
     Object *o1 = gstack.back();
     gstack.pop_back();
@@ -103,6 +116,18 @@ void swp() {
     gstack.pop_back();
     gstack.push_back(o1);
     gstack.push_back(o2);
+}
+
+void equals() {
+    Object *o1 = gstack.back();
+    gstack.pop_back();
+    Object *o2 = gstack.back();
+    gstack.pop_back();
+    if (o1->ival == o2->ival) {
+        gstack.push_back(trueobject);
+    } else {
+        gstack.push_back(falseobject);
+    }
 }
 
 void setfield() {
@@ -135,7 +160,7 @@ void setglobal(string name) {
 }
 
 void setlocal(int ival) {
-    if (ival >= gstack.size() - bp) {
+    if (ival >= (gstack.size() - bp)) {
         cerr << "OUPSSS, size bigger than locals" << endl;
         exit(1);
     }
@@ -259,6 +284,9 @@ void interpret_block(std::vector<std::string> &codes) {
         } else if (command == "swp") {
             cout << "swp" << endl;
             swp();
+        } else if (command == "equals") {
+            cout << "equals" << endl;
+            equals();
         } else if (command == "getfield") {
             cout << "getfield" << endl;
             getfield();
@@ -272,6 +300,16 @@ void interpret_block(std::vector<std::string> &codes) {
 // TODO check
             cout << "jmp " << location << endl;
             ip = location-1; // will increase at the end of loop
+        } else if (command == "jnt") {
+            string label;
+            ss >> label;
+            int location = labels.at(label);
+// TODO check
+            cout << "jnt " << location << endl;
+            Object *o = gstack.back();
+            gstack.pop_back();
+            if (o == falseobject)
+                ip = location-1; // will increase at the end of loop
         } else {
             cerr << "command not defined" << command << endl;
             throw std::exception();
@@ -298,6 +336,8 @@ void read_codes(std::stringstream& fs, std::vector<std::string>& codes) {
 
 int main () {
     std::fstream fs;
+    trueobject = newbool_internal(TRUE);
+    falseobject = newbool_internal(FALSE);
     fs.open("test.graspo", std::fstream::in);
     std::stringstream ss;
     copy(istreambuf_iterator<char>(fs),

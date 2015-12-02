@@ -25,6 +25,11 @@ class Function : public Object {
     int codep;
 };
 
+class Bool : public Object {
+    public:
+    int bval;
+};
+
 int ip;
 std::vector<Object *> gstack;
 int bp;

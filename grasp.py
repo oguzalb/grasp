@@ -96,7 +96,9 @@ subexpr = Infix(mulexpr, Literal('-'))
 subexpr.set_action(infix_action("sub"))
 addexpr = Infix(subexpr, Literal('+'))
 addexpr.set_action(infix_action("add"))
-orexpr = Infix(addexpr, Literal('or'))
+equalsexpr = Infix(addexpr, Literal("=="))
+equalsexpr.set_action(infix_action("equals"))
+orexpr = Infix(equalsexpr, Literal('or'))
 orexpr.set_action(infix_action("or"))
 andexpr = Infix(orexpr, Literal('and'))
 andexpr.set_action(infix_action('and'))
@@ -116,14 +118,37 @@ primitivestmt = (returnexpr | exprstmt) + Literal("\n")
 exprstmt.set_action(exprstmt_action)
 rightvalue = Group(andexpr)
 setfield = access_op + fieldname
-assgmt = varname + Optional(accessor) + Optional(setfield) + Literal("=") + Group(andexpr) + Literal("\n")
+simpleassgmt = Word() + Literal("=") + Group(andexpr) + Literal("\n")
+def simpleassgmt_action(parser, tokens):
+    var_index = parser.get_var(tokens[0])
+    if var_index != -1:
+        parser.add_instruction("setlocal %s" % var_index)
+    else:
+        parser.add_instruction("setglobal %s" % tokens[0])
+    return tokens
+simpleassgmt.set_action(simpleassgmt_action)
+ 
+assgmt = varname + Optional(accessor) + setfield + Literal("=") + Group(andexpr) + Literal("\n")
 def assgmt_action(parser, tokens):
     parser.add_instruction("str " + tokens[2][1])
     parser.add_instruction("swp")
     parser.add_instruction("setfield")
     return tokens
 assgmt.set_action(assgmt_action)
-stmt = funcdef | assgmt | primitivestmt
+stmt = Forward()
+ifexpr = Group(andexpr)
+def ifexpr_action(parser, tokens):
+    ifend = parser.new_label()
+    parser.add_instruction("jnt %s" % ifend)
+    return [ifend]
+ifexpr.set_action(ifexpr_action)
+ifstmt = Literal("if") + ifexpr + Literal("\n") + IndentedBlock(stmt)
+def ifstmt_action(parser, tokens):
+    blockend = parser.new_label()
+    parser.set_next_label(tokens[1])
+    return tokens
+ifstmt.set_action(ifstmt_action)
+stmt << (funcdef | assgmt | simpleassgmt | primitivestmt | ifstmt)
 defparams = Literal('(') + Optional(delimitedList(Word(), Literal(","))) + Literal(")")
 def defparams_action(parser, tokens):
     for param in tokens[1]:
@@ -209,6 +234,18 @@ func1.func = func1
 func1.func(1,2)
 """
 )
+print parser
+parser.reset()
+main.parseString(parser,
+"""func1(a,b) ->
+    if a == 1
+        a = 2
+    return a+b
+func1.func = func1
+func1.func(1,2)
+"""
+)
+
 print parser
 with open("test.graspo", "w") as f:
     f.write(parser.dumpcode())
