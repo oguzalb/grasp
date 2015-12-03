@@ -145,7 +145,7 @@ def ifexpr_action(parser, tokens):
     return [partend]
 ifexpr.set_action(ifexpr_action)
 
-jmp_to_end = Action(pass_params=[0, 1])
+jmp_to_end = Action(pass_params=[3, 0])
 def jmp_to_end_action(parser, tokens):
     parser.add_instruction("jmp %s" % tokens[0])
     parser.set_next_label(tokens[1])
@@ -156,7 +156,9 @@ def if_start_action(parser, tokens):
     ifend = parser.new_label()
     return [ifend]
 if_start.set_action(if_start_action)
-ifstmt = if_start + ifexpr + Literal("\n") + IndentedBlock(stmt) + jmp_to_end
+if_part = ifexpr + Literal("\n") + IndentedBlock(stmt) + jmp_to_end
+if_part.pass_params = [0]
+ifstmt = if_start + if_part
 def ifstmt_action(parser, tokens):
     blockend = parser.new_label()
     parser.set_next_label(tokens[0])
