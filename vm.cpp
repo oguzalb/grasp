@@ -1,6 +1,5 @@
 #include "vm.h"
 #include "assert.h"
-enum {INT_TYPE, FUNC_TYPE, NONE_TYPE, STR_TYPE, BOOL_TYPE, LIST_TYPE, LISTITERATOR_TYPE};
 
 void Object::setfield(string name, Object* object) {
     this->fields.insert({name, object});
@@ -11,28 +10,45 @@ Object *Object::getfield(string name) {
     return this->fields.at(name);
 }
 
+ListIterator::ListIterator(std::vector<Object *> list) {
+    this->it = list.begin();
+}
+
 Bool *trueobject;
 Bool *falseobject;
+Object *int_type;
+Object *func_type;
+Object *builtinfunc_type;
+Object *none_type;
+Object *bool_type;
+Object *str_type;
+Object *list_type;
+Object *listiterator_type;
 
 Bool *newbool_internal(int bval) {
     Bool *o = new Bool;
-    o->type = BOOL_TYPE;
+    o->type = bool_type;
     o->bval = bval;
     cout << "newbool: " << bval << endl;
     return o;
 }
 
-void newint(int ival) {
+inline Object *newint_internal(int ival) {
     Object *o = new Object;
-    o->type = INT_TYPE;
+    o->type = int_type;
     o->ival = ival;
+    return o;
+}
+
+void newint(int ival) {
+    Object *o = newint_internal(ival);
     cout << "newint: " << ival << endl;
     gstack.push_back(o);
 }
 
 void newstr(string sval) {
     Object *o = new Object;
-    o->type = STR_TYPE;
+    o->type = str_type;
     o->sval = sval;
     cout << "newstr: " << sval << endl;
     gstack.push_back(o);
@@ -47,7 +63,7 @@ void newnone() {
 
 void newfunc(int startp) {
     Function *o = new Function;
-    o->type = FUNC_TYPE;
+    o->type = func_type;
     o->codep = startp;
     gstack.push_back(o);
 }
@@ -57,20 +73,27 @@ void interpret_block(std::vector<std::string>& codes);
 void call(std::vector<std::string>& codes, int param_count) {
     // TODO stuff about param_count
     bp = gstack.size() - param_count;
-    Function *func = (Function *)gstack.at(bp - 1);
+    Object *callable = (Object *)gstack.at(bp - 1);
     // TODO exc
-    assert(func->type == FUNC_TYPE);
-    int cur_ip = ip;
-    ip = func->codep;
-    interpret_block(codes);
-    Object *result = gstack.back();
-    gstack.pop_back();
-    gstack.resize(gstack.size() - param_count);
-    func = (Function *)gstack.back();
-    assert(func->type == FUNC_TYPE);
-    gstack.pop_back();
-    gstack.push_back(result);
-    ip = cur_ip;
+    if (callable->type == func_type) {
+        Function *func = (Function *)callable;
+        int cur_ip = ip;
+        ip = func->codep;
+        interpret_block(codes);
+        Object *result = gstack.back();
+        gstack.pop_back();
+        gstack.resize(gstack.size() - param_count);
+        func = (Function *)gstack.back();
+        assert(func->type == func_type);
+        gstack.pop_back();
+        gstack.push_back(result);
+        ip = cur_ip;
+    } else if (callable->type == builtinfunc_type) {
+        BuiltinFunction *func = (BuiltinFunction *)callable;
+        func->function();
+    } else {
+        assert(FALSE);
+    }
 } 
 
 void add() {
@@ -210,7 +233,7 @@ void interpret_block(std::vector<std::string> &codes) {
         ss >> command;
         if (command == "pop") {
             Object *val = gstack.back();
-            if (val->type == INT_TYPE)
+            if (val->type == int_type)
                 cout << "popped " << val->ival << endl;
             else
                 cout << "popped func" << endl;
@@ -336,10 +359,42 @@ void read_codes(std::stringstream& fs, std::vector<std::string>& codes) {
     }
 }
 
-int main () {
-    std::fstream fs;
+Object *new_type() {
+    Object *type = new Object();
+    type->type = NULL;
+    return type;
+}
+
+void range_func() {
+    Object *max = gstack.back();
+    gstack.pop_back();
+    List *list = new List();
+    list->list = std::vector<Object *>();
+    for (int i=0; i<max->ival; i++)
+        list->list.push_back(newint_internal(i));
+    gstack.push_back(list);
+}
+
+void init_builtins() {
+    Object *bool_type = new Object();
     trueobject = newbool_internal(TRUE);
     falseobject = newbool_internal(FALSE);
+    int_type = new_type();
+    func_type = new_type();
+    none_type = new_type();
+    str_type = new_type();
+    list_type = new_type();
+    builtinfunc_type = new_type();
+    BuiltinFunction *range = new BuiltinFunction();
+    range->type = builtinfunc_type;
+    range->function = range_func;
+    globals["range"] = range;
+    listiterator_type = new_type();
+}
+
+int main () {
+    init_builtins();
+    std::fstream fs;
     fs.open("test.graspo", std::fstream::in);
     std::stringstream ss;
     copy(istreambuf_iterator<char>(fs),

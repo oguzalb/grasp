@@ -12,12 +12,12 @@ using namespace std;
 class Function;
 class Object {
     public:
-    int type;
     string sval;
     int ival;
     std::unordered_map<string, Object *> fields;
     void setfield(string name, Object* object);
     Object *getfield(string name);
+    Object *type;
 };
 
 class Function : public Object {
@@ -25,9 +25,25 @@ class Function : public Object {
     int codep;
 };
 
+class BuiltinFunction : public Object {
+    public:
+    void (*function) ();
+};
+
 class Bool : public Object {
     public:
     int bval;
+};
+
+class List : public Object {
+    public:
+    std::vector<Object *> list;
+};
+
+class ListIterator : public Object {
+    public:
+    ListIterator(std::vector<Object *>);
+    std::vector<Object *>::iterator it;
 };
 
 int ip;

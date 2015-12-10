@@ -26,9 +26,9 @@ class Parser():
             self.add_instruction("nop")
         self.next_label = label
     def __repr__(self):
-        return "code:\n%s" % self.code.getvalue()
+        return "code:\n%s" % self.dumpcode()
     def dumpcode(self):
-        return self.code.getvalue() + "" if not self.next_label else self.next_label + ":nop"
+        return self.code.getvalue() + ("" if self.next_label is None else self.next_label + ":nop\n")
     def push_context(self):
         self.contexts.append({})
     def pop_context(self):
@@ -142,21 +142,21 @@ assgmt.set_action(assgmt_action)
 stmt = Forward()
 
 class IfAtom(Atom):
-    def process(self, parser):
+    def process(self, children, parser):
         ifend = parser.new_label()
         for ifpart in self[0]:
-            ifpart.process(parser, ifend)
+            ifpart.process(ifpart, parser, ifend)
         parser.set_next_label(ifend)
         if len(self) > 1:
-            self[1].process(parser)
+            self[1].process(self[0], parser)
         return self
 
 class IfPart(Atom):
-    def process(self, parser, ifend):
+    def process(self, children, parser, ifend):
         partend = parser.new_label()
-        self[0].process(parser)
+        self[0].process(self[0], parser)
         parser.add_instruction("jnt %s" % partend)
-        self[1].process(parser)
+        self[1].process(self[0], parser)
         parser.add_instruction("jmp %s" % ifend)
         parser.set_next_label(partend)
         return self
@@ -213,7 +213,24 @@ class IfStmt(Token):
         return results, i
         
 ifstmt = IfStmt()
-stmt << (funcdef | assgmt | simpleassgmt | primitivestmt | ifstmt)
+forstmt = Literal("for") + Word() + Literal('in') + Group(andexpr) + Literal('\n') + IndentedBlock(stmt)
+def forstmt_process(children, parser):
+    startlabel = parser.new_label()
+    children[0][3].process(children[0][3], parser)
+    parser.add_instruction("str iter")
+    parser.add_instruction("getfield")
+    parser.add_instruction("call 1")
+    endlabel = parser.new_label()
+    parser.set_next_label(startlabel)
+    parser.add_instruction("loop %s" % endlabel)
+    simpleassgmt_action(parser, children[0][1])
+    children[0][5].process(children[0][5], parser)
+    parser.add_instruction("jmp %s" % startlabel)
+    parser.set_next_label(endlabel)
+    parser.add_instruction("pop")
+    return []
+forstmt.process = forstmt_process
+stmt << (funcdef | assgmt | simpleassgmt | primitivestmt | ifstmt | forstmt)
 defparams = Literal('(') + Optional(delimitedList(Word(), Literal(","))) + Literal(")")
 def defparams_action(parser, tokens):
     for param in tokens[1]:
@@ -308,6 +325,8 @@ main.parseString(parser,
     else
         return a + perm(a - 1)
 perm(5)
+for a in range(1)
+    print(a)
 """
 )
 
