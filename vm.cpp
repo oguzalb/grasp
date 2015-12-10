@@ -1,6 +1,6 @@
 #include "vm.h"
 #include "assert.h"
-enum {INT_TYPE, FUNC_TYPE, NONE_TYPE, STR_TYPE, BOOL_TYPE};
+enum {INT_TYPE, FUNC_TYPE, NONE_TYPE, STR_TYPE, BOOL_TYPE, LIST_TYPE, LISTITERATOR_TYPE};
 
 void Object::setfield(string name, Object* object) {
     this->fields.insert({name, object});
@@ -88,7 +88,7 @@ void sub() {
     Object *o2 = gstack.back();
     gstack.pop_back();
     // TODO exc
-    newint(o1->ival - o2->ival);
+    newint(o2->ival - o1->ival);
 }
  
 void mul() {

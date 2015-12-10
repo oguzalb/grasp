@@ -21,38 +21,21 @@ def default_action(parser, value):
     return value
 
 class Atom(list):
-    def __init__(self, single=False, pass_params=None):
-        if pass_params is None:
-            pass_params = []
-        self.pass_params = pass_params
+    def __init__(self, single=False):
         self.action = default_action
         self.single = single
     def set_action(self, action):
         if action is not None:
             self.action = action
-    def process(self, parser, additional_params=None):
-        if additional_params is None:
-            additional_params = []
-        results = []
-        for c in self:
-            if isinstance(c, str):
-                results.append(c)
-            else:
-                adds = []
-                temp_results = results + additional_params
-                if c.pass_params:
-                    adds.extend((temp_results[i] for i in c.pass_params))
-                results.append(c.process(parser, additional_params=adds))
-        result = self.action(parser, results + additional_params)
-        if not self.single:
+    def process(self, parser):
+        results = [c.process(parser) if not isinstance(c, str) else c for c in self]
+        result = self.action(parser, results)
+        if (not self.single) or len(result) > 1:
             return result
         return result[0] if len(result) else None
 
 class Token():
-    def __init__(self, pass_params=None):
-        if pass_params is None:
-            pass_params = []
-        self.pass_params = pass_params
+    def __init__(self):
         self.action = None
     def parseString(self, parser, text):
         print text
@@ -73,7 +56,7 @@ class Action(Token):
         # change all
         Token.__init__(self, **kwargs)
     def parse(self, text, i):
-        results = Atom(pass_params=self.pass_params)
+        results = Atom()
         results.set_action(self.action)
         return results, i
 
@@ -85,7 +68,7 @@ class And(Token):
         self.patterns.append(pattern)
         return self
     def parse(self, text, i):
-        results = Atom(pass_params=self.pass_params)
+        results = Atom()
         def default_action(parser, tokens):
             return tokens
         results.set_action(self.action or default_action)
@@ -105,7 +88,7 @@ class Or(Token):
         for alternative in self.alternatives:
             try:
                 alt_result, i = alternative.parse(text, i)
-                result = Atom(single=True, pass_params=self.pass_params)
+                result = Atom(single=True)
                 result.append(alt_result)
                 return result, i
             except ParseError as e:
@@ -125,7 +108,7 @@ class Regex(Token):
             raise ParseError("not matched %s, rest:|%s|" % (i, text[i:]))
         i = match.end()
         i = pass_space(text, i)
-        result = Atom(single=True, pass_params=self.pass_params)
+        result = Atom(single=True)
         result.append(match.group())
         result.set_action(self.action)
         return result, i
@@ -137,7 +120,7 @@ class Forward(Token):
         Token.__init__(self)
         self.copies = []
     def parse(self, text, i):
-        results = Atom(single=True, pass_params=self.pass_params)
+        results = Atom(single=True)
         results.set_action(self.action)
         result, i = self.token.parse(text, i)
         results.append(result)
@@ -152,7 +135,7 @@ class IndentedBlock(Token):
         Token.__init__(self)
         self.stmt = stmt
     def parse(self, text, i):
-        block = Atom(pass_params=self.pass_params)
+        block = Atom()
         block.set_action(self.action)
         stmt_start = pass_indent_space(text, i)
         first_indent = stmt_start - i
@@ -177,7 +160,7 @@ class Literal(Token):
             raise ParseError("not matched %s |%s| rest:|%s|" % (i, self.literal, text[i:]))
         i += len(self.literal)
         i = pass_space(text, i)
-        result = Atom(single=True, pass_params=self.pass_params)
+        result = Atom(single=True)
         result.set_action(self.action)
         result.extend(self.literal)
         return result, i
@@ -198,19 +181,18 @@ class Infix(Token):
         self.operand = operand
     def parse(self, text, i):
         results = Atom()
-        results.set_action(self.action)
         result, i = self.operand.parse(text, i)
         results.append(result)
         while True:
             try:
                 result, i = self.operator.parse(text, i)
+                results.set_action(self.action)
                 results.append(result)
             except ParseError as e:
                 return results[0], i
             result, i = self.operand.parse(text, i)
             results.append(result)
             atom = Atom()
-            atom.set_action(self.action)
             atom.append(results)
             results = atom
     def copy(self):
@@ -222,12 +204,12 @@ class Postfix(Token):
         Token.__init__(self)
         self.operator = operator
     def parse(self, text, i):
-        results = Atom(pass_params=self.pass_params)
+        results = Atom()
         results.set_action(self.action)
         result, i = self.operator.parse(text, i)
         results.append(result)
         while True:
-            atom = Atom(pass_params=self.pass_params)
+            atom = Atom()
             atom.set_action(self.action)
             atom.append(results)
             results = atom
@@ -243,14 +225,14 @@ class PostfixWithoutLast(Token):
         Token.__init__(self)
         self.operator = operator
     def parse(self, text, i):
-        results = Atom(pass_params=self.pass_params)
+        results = Atom()
         results.set_action(self.action)
         indexes = [i]
         result, i = self.operator.parse(text, i)
         indexes.append(i)
         results.append(result)
         while True:
-            atom = Atom(pass_params=self.pass_params)
+            atom = Atom()
             atom.set_action(self.action)
             atom.append(results)
             results = atom
@@ -263,7 +245,7 @@ class PostfixWithoutLast(Token):
                 if len(indexes) > 2:
                     return results[0][0], indexes[-2]
                 else:
-                    return Atom(single=True, pass_params=self.pass_params), indexes[0]
+                    return Atom(single=True), indexes[0]
 
        
 class Optional(Token):
@@ -273,12 +255,12 @@ class Optional(Token):
     def parse(self, text, i):
         try:
             result, i = self.token.parse(text, i)
-            results = Atom(single=True, pass_params=self.pass_params)
+            results = Atom(single=True)
             results.set_action(self.action)
             results.append(result)
             return results, i
         except ParseError:
-            return Atom(single=True, pass_params=self.pass_params), i
+            return Atom(single=True), i
 
 class delimitedList(Token):
     def __init__(self, delimited, delimiter):
@@ -286,7 +268,7 @@ class delimitedList(Token):
         self.delimiter = delimiter
         self.delimited = delimited
     def parse(self, text, i):
-        results = Atom(pass_params=self.pass_params)
+        results = Atom()
         result, i = self.delimited.parse(text, i)
         results.extend(result)
         while True:
@@ -310,7 +292,7 @@ class Group(Token):
         Token.__init__(self)
         self.token = token
     def parse(self, text, i):
-        results = Atom(single=True, pass_params=self.pass_params)
+        results = Atom(single=True)
         results.set_action(self.action)
         result, i = self.token.parse(text, i)
         results.append(result)

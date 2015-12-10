@@ -1,4 +1,4 @@
-from parse import Word, quotedString, delimitedList, Infix, Literal, IndentedBlock, Forward, Optional, Regex, Group, Postfix, LookAheadLiteral, PostfixWithoutLast, Action
+from parse import Word, quotedString, delimitedList, Infix, Literal, IndentedBlock, Forward, Optional, Regex, Group, Postfix, LookAheadLiteral, PostfixWithoutLast, Action, Atom, Token, ParseError
 from StringIO import StringIO
 
 class Parser():
@@ -65,7 +65,8 @@ def number_action(parser, tokens):
     return tokens
 number.set_action(number_action)
 atom = varname | string | number
-callparams = Literal('(') + Optional(delimitedList(atom, Literal(","))) + Literal(")")
+andexpr_container = Forward()
+callparams = Literal('(') + Optional(delimitedList(andexpr_container, Literal(","))) + Literal(")")
 def infix_action(name):
     def expr_action(parser, tokens):
         parser.add_instruction(name)
@@ -103,6 +104,7 @@ equalsexpr.set_action(infix_action("equals"))
 orexpr = Infix(equalsexpr, Literal('or'))
 orexpr.set_action(infix_action("or"))
 andexpr = Infix(orexpr, Literal('and'))
+andexpr_container << andexpr
 andexpr.set_action(infix_action('and'))
 
 returnexpr = Literal('return') + andexpr
@@ -138,32 +140,79 @@ def assgmt_action(parser, tokens):
     return tokens
 assgmt.set_action(assgmt_action)
 stmt = Forward()
-ifexpr = Group(andexpr)
-def ifexpr_action(parser, tokens):
-    partend = parser.new_label()
-    parser.add_instruction("jnt %s" % partend)
-    return [partend]
-ifexpr.set_action(ifexpr_action)
 
-jmp_to_end = Action(pass_params=[3, 0])
-def jmp_to_end_action(parser, tokens):
-    parser.add_instruction("jmp %s" % tokens[0])
-    parser.set_next_label(tokens[1])
-    return tokens
-jmp_to_end.set_action(jmp_to_end_action)
-if_start = Literal("if")
-def if_start_action(parser, tokens):
-    ifend = parser.new_label()
-    return [ifend]
-if_start.set_action(if_start_action)
-if_part = ifexpr + Literal("\n") + IndentedBlock(stmt) + jmp_to_end
-if_part.pass_params = [0]
-ifstmt = if_start + if_part
-def ifstmt_action(parser, tokens):
-    blockend = parser.new_label()
-    parser.set_next_label(tokens[0])
-    return tokens
-ifstmt.set_action(ifstmt_action)
+class IfAtom(Atom):
+    def process(self, parser):
+        ifend = parser.new_label()
+        for ifpart in self[0]:
+            ifpart.process(parser, ifend)
+        parser.set_next_label(ifend)
+        if len(self) > 1:
+            self[1].process(parser)
+        return self
+
+class IfPart(Atom):
+    def process(self, parser, ifend):
+        partend = parser.new_label()
+        self[0].process(parser)
+        parser.add_instruction("jnt %s" % partend)
+        self[1].process(parser)
+        parser.add_instruction("jmp %s" % ifend)
+        parser.set_next_label(partend)
+        return self
+
+class IfStmt(Token):
+    def parse(self, text, i):
+        # not a nice solution, will have a look later
+        if_indent = IndentedBlock.indents[-1]
+        def parse_ifpart(tag, text, i):
+            # space? solved but is it nice?
+            try:
+                _, i = Regex("(%s) " % tag).parse(text, i)
+            except ParseError:
+                return None, i
+            ifpart = IfPart()
+            ifexpr, i = Group(andexpr).parse(text, i)
+            ifpart.append(ifexpr)
+            _, i = Literal("\n").parse(text, i)
+            block, i = IndentedBlock(stmt).parse(text, i)
+            ifpart.append(block)
+            return ifpart, i
+        def parse_else(text, i):
+            indent, new_i = Regex("\s*").parse(text, i)
+            if new_i - i != if_indent:
+                return None, i
+            try:
+                _, i = Regex("else\n").parse(text, new_i)
+            except ParseError:
+                return None, i
+            try:
+                elsepart, i = IndentedBlock(stmt).parse(text, i)
+            except Exception as e:
+                raise Exception(e)
+            return elsepart, i
+        results = IfAtom()
+        ifpart, i = parse_ifpart("if", text, i)
+        if ifpart is None:
+            raise ParseError("not if")
+        ifparts = []
+        ifparts.append(ifpart)
+        while True:
+            indent, new_i = Regex("\s*").parse(text, i)
+            if new_i - i != if_indent:
+                break
+            ifpart, new_i = parse_ifpart("elif", text, new_i)
+            if ifpart is None:
+                break
+            i = new_i
+            ifparts.append(ifpart)
+        results.append(ifparts)
+        elsepart, i = parse_else(text, i)
+        if elsepart is not None:
+            results.append(elsepart)
+        return results, i
+        
+ifstmt = IfStmt()
 stmt << (funcdef | assgmt | simpleassgmt | primitivestmt | ifstmt)
 defparams = Literal('(') + Optional(delimitedList(Word(), Literal(","))) + Literal(")")
 def defparams_action(parser, tokens):
@@ -253,12 +302,12 @@ func1.func(1,2)
 print parser
 parser.reset()
 main.parseString(parser,
-"""func1(a,b) ->
+"""perm(a) ->
     if a == 1
-        a = 2
-    return a+b
-func1.func = func1
-func1.func(1,2)
+        return 1
+    else
+        return a + perm(a - 1)
+perm(5)
 """
 )
 
