@@ -73,6 +73,7 @@ def infix_action(name):
         return tokens
     return expr_action
 def funccall_action(parser, tokens):
+    # TODO callmethod increases count
     parser.add_instruction("call %s" % (len(tokens[1]) if tokens[1] else 0))
     return tokens
 callparams.set_action(funccall_action)
@@ -84,13 +85,17 @@ def accessor_action(parser, tokens):
 fieldname = Word()
 accessor = PostfixWithoutLast(access_op + fieldname)
 accessor.set_action(accessor_action)
-last_accessor = Group(access_op + fieldname)
-last_accessor.set_action(accessor_action)
-access = atom + Optional(accessor) + Optional(last_accessor)
-def access_action(parser, tokens):
+last_accessor = access_op + fieldname
+last_accessor_call = access_op + fieldname + callparams
+trailerwithcall = last_accessor_call
+trailerwithoutcall = Group(last_accessor)
+trailer = atom + Optional(accessor) + Optional(trailerwithcall | trailerwithoutcall | callparams)
+def trailerwithcall_action(parser, tokens):
+    parser.add_instruction("str " + tokens[1])
+    parser.add_instruction("getmethod")
     return tokens
-access.set_action(access_action)
-trailer = access + Optional(callparams)
+trailerwithcall.set_action(trailerwithcall_action)
+trailerwithoutcall.set_action(accessor_action)
 divexpr = Infix(trailer, Literal('/'))
 divexpr.set_action(infix_action("div"))
 mulexpr = Infix(divexpr, Literal('*'))
@@ -218,7 +223,8 @@ def forstmt_process(children, parser):
     startlabel = parser.new_label()
     children[0][3].process(children[0][3], parser)
     parser.add_instruction("str iter")
-    parser.add_instruction("getfield")
+    parser.add_instruction("getmethod")
+    parser.add_instruction("swp")
     parser.add_instruction("call 1")
     endlabel = parser.new_label()
     parser.set_next_label(startlabel)
@@ -325,7 +331,7 @@ main.parseString(parser,
     else
         return a + perm(a - 1)
 perm(5)
-for a in range(1)
+for a in range(5)
     print(a)
 """
 )

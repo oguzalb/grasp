@@ -7,7 +7,15 @@ void Object::setfield(string name, Object* object) {
 
 Object *Object::getfield(string name) {
 // TODO exceptions
-    return this->fields.at(name);
+// TODO parent chain   
+    Object *field;
+    try { field = this->fields.at(name);}
+    catch (const std::out_of_range& oor) {
+        assert(this->type);
+        field = this->type->fields.at(name);
+    }
+    cout << "getfield type " << field->type << endl;
+    return field;
 }
 
 ListIterator::ListIterator(std::vector<Object *> list) {
@@ -91,10 +99,18 @@ void call(std::vector<std::string>& codes, int param_count) {
     } else if (callable->type == builtinfunc_type) {
         BuiltinFunction *func = (BuiltinFunction *)callable;
         func->function();
+        Object *result = gstack.back();
+        gstack.pop_back();
+        gstack.push_back(result);
     } else {
+        cout << callable->type << endl;
         assert(FALSE);
     }
 } 
+
+void loop(int location) {
+    throw new exception();
+}
 
 void add() {
     Object *o1 = gstack.back();
@@ -175,7 +191,18 @@ cout << "object type" << o2->type << endl;
     gstack.push_back(field);
     cout << "field pushed" << endl;
 }
- 
+
+void getmethod() {
+    Object *o1 = gstack.back();
+cout << "object type" << o1->type << endl;
+    gstack.pop_back();
+    Object *o2 = gstack.back();
+cout << "object type" << o2->type << endl;
+    Object *field = o2->getfield(o1->sval);
+    assert(field->type == builtinfunc_type || field->type == func_type);
+    gstack.push_back(field);
+    cout << "field pushed type " << field->type << endl;
+}
 
 void setglobal(string name) {
     globals[name] = gstack.back();
@@ -318,6 +345,9 @@ void interpret_block(std::vector<std::string> &codes) {
         } else if (command == "setfield") {
             cout << "setfield" << endl;
             setfield();
+        } else if (command == "getmethod") {
+            cout << "getmethod" << endl;
+            getmethod();
         } else if (command == "jmp") {
             string label;
             ss >> label;
@@ -325,6 +355,12 @@ void interpret_block(std::vector<std::string> &codes) {
 // TODO check
             cout << "jmp " << location << endl;
             ip = location-1; // will increase at the end of loop
+        } else if (command == "loop"){
+            string label;
+            ss >> label;
+            int location = labels.at(label);
+            cout << "loop " << location << endl;
+            loop(location);
         } else if (command == "jnt") {
             string label;
             ss >> label;
@@ -369,10 +405,22 @@ void range_func() {
     Object *max = gstack.back();
     gstack.pop_back();
     List *list = new List();
+    list->type = list_type;
     list->list = std::vector<Object *>();
     for (int i=0; i<max->ival; i++)
         list->list.push_back(newint_internal(i));
     gstack.push_back(list);
+}
+
+void list_iter() {
+    Object *self_obj = gstack.back();
+// TODO remove assert
+    assert(self_obj->type == list_type);
+    List *self = (List *)self_obj;
+    gstack.pop_back();
+    ListIterator *it_obj = new ListIterator(self->list);
+    it_obj->type = listiterator_type;
+    gstack.push_back(it_obj);
 }
 
 void init_builtins() {
@@ -389,6 +437,10 @@ void init_builtins() {
     range->type = builtinfunc_type;
     range->function = range_func;
     globals["range"] = range;
+    BuiltinFunction *iter_func = new BuiltinFunction();
+    iter_func->type = builtinfunc_type;
+    iter_func->function = range_func;
+    list_type->setfield("iter", iter_func);
     listiterator_type = new_type();
 }
 

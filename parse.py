@@ -91,7 +91,7 @@ class Or(Token):
         for alternative in self.alternatives:
             try:
                 alt_result, i = alternative.parse(text, i)
-                result = Atom(single=True, process=self.process)
+                result = Atom(single=True)
                 result.append(alt_result)
                 return result, i
             except ParseError as e:
@@ -183,7 +183,7 @@ class Infix(Token):
         self.operator = operator
         self.operand = operand
     def parse(self, text, i):
-        results = Atom(process=self.process)
+        results = Atom()
         result, i = self.operand.parse(text, i)
         results.append(result)
         while True:
@@ -195,7 +195,7 @@ class Infix(Token):
                 return results[0], i
             result, i = self.operand.parse(text, i)
             results.append(result)
-            atom = Atom(process=self.process)
+            atom = Atom()
             atom.append(results)
             results = atom
     def copy(self):
@@ -248,7 +248,7 @@ class PostfixWithoutLast(Token):
                 if len(indexes) > 2:
                     return results[0][0], indexes[-2]
                 else:
-                    return Atom(single=True, process=self.process), indexes[0]
+                    return Atom(single=True), indexes[0]
 
        
 class Optional(Token):
@@ -263,7 +263,7 @@ class Optional(Token):
             results.append(result)
             return results, i
         except ParseError:
-            return Atom(single=True, process=self.process), i
+            return Atom(single=True), i
 
 class delimitedList(Token):
     def __init__(self, delimited, delimiter):
@@ -271,7 +271,7 @@ class delimitedList(Token):
         self.delimiter = delimiter
         self.delimited = delimited
     def parse(self, text, i):
-        results = Atom(process=self.process)
+        results = Atom()
         result, i = self.delimited.parse(text, i)
         results.extend(result)
         while True:
