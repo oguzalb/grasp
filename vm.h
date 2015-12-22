@@ -37,13 +37,14 @@ class Bool : public Object {
 
 class List : public Object {
     public:
-    std::vector<Object *> list;
+    std::vector<Object *> *list;
 };
 
 class ListIterator : public Object {
     public:
-    ListIterator(std::vector<Object *>);
-    std::vector<Object *>::iterator it;
+    ListIterator(std::vector<Object *> *);
+    std::vector<Object *>::iterator *it;
+    std::vector<Object *>::iterator *end;
 };
 
 int ip;
@@ -52,6 +53,7 @@ int bp;
 std::vector<Object *> locals;
 std::unordered_map<string, Object *> globals;
 std::unordered_map<string, int> labels;
+Object *error;
 #define TRUE 1
 #define FALSE 0
 #endif
