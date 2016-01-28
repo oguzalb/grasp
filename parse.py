@@ -1,5 +1,7 @@
 class ParseError(Exception):
-    pass
+    def __init__(self, message, i):
+        super(ParseError, self).__init__(message)
+        self.i = i
 
 def pass_indent_space(text, i):
     # TODO any space!
@@ -44,7 +46,7 @@ class Token():
         print text
         tokens, i = self.parse(text, 0)
         if len(text) != i:
-            raise ParseError("Not finished %s, rest: %s" % (i, text[i:]))
+            raise ParseError("Not finished %s, rest: %s" % (i, text[i:]), i)
         tokens.process(tokens, parser)
         return tokens
     def __or__(self, token):
@@ -88,6 +90,7 @@ class Or(Token):
         self.alternatives.append(alternative)
         return self
     def parse(self, text, i):
+        longest = None
         for alternative in self.alternatives:
             try:
                 alt_result, i = alternative.parse(text, i)
@@ -95,8 +98,11 @@ class Or(Token):
                 result.append(alt_result)
                 return result, i
             except ParseError as e:
-                pass
-        raise ParseError("None of alternatives %s. rest: |%s|" % (i, text[i:]))
+                if longest is None or e.i > longest.i:
+                    longest = e
+        if longest is None:
+            raise ParseError("None of alternatives %s. rest: |%s|" % (i, text[i:]), i)
+        raise longest
     
 
 import re
@@ -108,7 +114,7 @@ class Regex(Token):
         i = pass_space(text, i)
         match = self.pattern.match(text, i)
         if not match:
-            raise ParseError("not matched %s, rest:|%s|" % (i, text[i:]))
+            raise ParseError("not matched %s, rest:|%s|" % (i, text[i:]), i)
         i = match.end()
         i = pass_space(text, i)
         result = Atom(single=True, process=self.process)
@@ -160,7 +166,7 @@ class Literal(Token):
     def parse(self, text, i):
         i = pass_space(text, i)
         if self.literal != text[i:i+len(self.literal)]:
-            raise ParseError("not matched %s |%s| rest:|%s|" % (i, self.literal, text[i:]))
+            raise ParseError("not matched %s |%s| rest:|%s|" % (i, self.literal, text[i:]), i)
         i += len(self.literal)
         i = pass_space(text, i)
         result = Atom(single=True, process=self.process)

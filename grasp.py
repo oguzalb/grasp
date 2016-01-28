@@ -67,16 +67,22 @@ number.set_action(number_action)
 atom = varname | string | number
 andexpr_container = Forward()
 callparams = Literal('(') + Optional(delimitedList(andexpr_container, Literal(","))) + Literal(")")
+funccall = Group(callparams)
+methodcall = Group(callparams)
 def infix_action(name):
     def expr_action(parser, tokens):
         parser.add_instruction(name)
         return tokens
     return expr_action
 def funccall_action(parser, tokens):
-    # TODO callmethod increases count
-    parser.add_instruction("call %s" % (len(tokens[1]) if tokens[1] else 0))
+    parser.add_instruction("call %s" % (len(tokens[0][1]) if tokens[0][1] else 0))
     return tokens
-callparams.set_action(funccall_action)
+funccall.set_action(funccall_action)
+def methodcall_action(parser, tokens):
+    parser.add_instruction("swp")
+    parser.add_instruction("call %s" % (len(tokens[0][1]) + 1 if tokens[0][1] else 1))
+    return tokens
+methodcall.set_action(methodcall_action)
 access_op = Literal(".")
 def accessor_action(parser, tokens):
     parser.add_instruction("str " + tokens[0][1])
@@ -86,15 +92,16 @@ fieldname = Word()
 accessor = PostfixWithoutLast(access_op + fieldname)
 accessor.set_action(accessor_action)
 last_accessor = access_op + fieldname
-last_accessor_call = access_op + fieldname + callparams
+last_accessor_call = access_op + fieldname + methodcall
 trailerwithcall = last_accessor_call
 trailerwithoutcall = Group(last_accessor)
-trailer = atom + Optional(accessor) + Optional(trailerwithcall | trailerwithoutcall | callparams)
-def trailerwithcall_action(parser, tokens):
-    parser.add_instruction("str " + tokens[1])
+trailer = atom + Optional(accessor) + Optional(trailerwithcall | trailerwithoutcall | funccall)
+def trailerwithcall_process(children, parser):
+    parser.add_instruction("str " + children[0][1][0])
     parser.add_instruction("getmethod")
-    return tokens
-trailerwithcall.set_action(trailerwithcall_action)
+    return [child.process(child, parser) for child in children[0]]
+        
+trailerwithcall.process = trailerwithcall_process
 trailerwithoutcall.set_action(accessor_action)
 divexpr = Infix(trailer, Literal('/'))
 divexpr.set_action(infix_action("div"))
@@ -199,7 +206,7 @@ class IfStmt(Token):
         results = IfAtom()
         ifpart, i = parse_ifpart("if", text, i)
         if ifpart is None:
-            raise ParseError("not if")
+            raise ParseError("not if", i)
         ifparts = []
         ifparts.append(ifpart)
         while True:
@@ -236,11 +243,55 @@ def forstmt_process(children, parser):
     parser.add_instruction("pop")
     return []
 forstmt.process = forstmt_process
-stmt << (funcdef | assgmt | simpleassgmt | primitivestmt | ifstmt | forstmt)
+
+def funcdef_action(parser, tokens):
+    parser.add_instruction("pushglobal none")
+    parser.add_instruction("return")
+    return tokens
+funcdef.set_action(funcdef_action)
+
+namedfuncdef = Group(funcdef)
+def namedfuncdef_action(parser, tokens):
+    # TODO this return value issue should be fixed on parse lib
+    parser.set_next_label(tokens[0][0][2])
+    parser.add_instruction("function %s" % tokens[0][0][1])
+    parser.add_instruction("setglobal %s" % tokens[0][0][0])
+    parser.pop_context()
+    return tokens
+namedfuncdef.set_action(namedfuncdef_action)
+
+classmethoddef = Group(funcdef)
+def classmethoddef_action(parser, tokens):
+    parser.set_next_label(tokens[0][0][2])
+    parser.add_instruction("dup")
+    parser.add_instruction("str %s"% tokens[0][0][0])
+    parser.add_instruction("function %s" % tokens[0][0][1])
+    parser.add_instruction("setfield")
+    parser.pop_context()
+    return tokens
+
+classmethoddef.set_action(classmethoddef_action)
+
+classstmt = Literal('class') + Word() + Literal('\n') + IndentedBlock(classmethoddef)
+def classstmt_process(children, parser):
+    parser.add_instruction("class")
+    parser.add_instruction("dup")
+    # TODO
+    parser.add_instruction("setglobal %s" % children[0][1][0])
+    children[0][3].process(children[0][3], parser)
+    parser.add_instruction("pop")
+    return []
+
+classstmt.process = classstmt_process
+
+stmt << (namedfuncdef | assgmt | simpleassgmt | primitivestmt | ifstmt | forstmt | classstmt | Regex('\s+'))
+
+
 defparams = Literal('(') + Optional(delimitedList(Word(), Literal(","))) + Literal(")")
 def defparams_action(parser, tokens):
-    for param in tokens[1]:
-        parser.add_var(param)
+    if tokens[1] is not None:
+        for param in tokens[1]:
+            parser.add_var(param)
     return tokens
 defparams.set_action(defparams_action)
 funcname = Word()
@@ -253,14 +304,6 @@ def funcname_action(parser, tokens):
     return [[tokens[0], startlabel, endlabel]]
 funcname.set_action(funcname_action)
 funcdef << funcname + defparams + Literal('->\n') + IndentedBlock(stmt)
-def funcdef_action(parser, tokens):
-    # TODO this return value issue should be fixed on parse lib
-    parser.set_next_label(tokens[0][0][2])
-    parser.add_instruction("function %s" % tokens[0][0][1])
-    parser.add_instruction("setglobal %s" % tokens[0][0][0])
-    parser.pop_context()
-    return tokens
-funcdef.set_action(funcdef_action)
 main = IndentedBlock(stmt)
 parser = Parser()
 print varname.parseString(parser, "asdasd")
@@ -290,7 +333,7 @@ parser.reset()
 returnexpr.parseString(parser, 'return a+b')
 print parser
 parser.reset()
-funcdef.parseString(parser,
+namedfuncdef.parseString(parser,
 """func1(a,b) ->
     func2(c)
     return a+b
@@ -333,6 +376,25 @@ main.parseString(parser,
 perm(5)
 for a in range(5)
     print(a)
+perm2(a) ->
+    tot = 0
+    for i in range(a)
+        tot = tot + i
+    return tot
+print(perm2(5))
+"""
+)
+print parser
+parser.reset()
+main.parseString(parser,
+"""
+class Person
+    __init__(self, name) ->
+        self.name = name
+    hello(self) ->
+        print(self.name)
+person = Person("oguz")
+person.hello()
 """
 )
 

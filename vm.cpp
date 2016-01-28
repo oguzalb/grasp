@@ -13,7 +13,13 @@ Object *str_type;
 Object *list_type;
 Object *listiterator_type;
 Object *exception_type;
+Object *class_type;
 
+#define GETLOCAL(x) (gstack[bp+x])
+#define GETFUNC() (gstack.at(bp-1))
+#define LOCALSIZE() (gstack.size()-bp)
+
+void call(std::vector<std::string>& codes, int param_count);
 
 void Object::setfield(string name, Object* object) {
     this->fields.insert({name, object});
@@ -30,7 +36,7 @@ Object *Object::getfield(string name) {
         try {
             field = this->type->fields.at(name);
         } catch (const std::out_of_range& oor) {
-            throw exception();
+            return NULL;
         }
     }
     cout << "getfield type " << field->type << endl;
@@ -56,8 +62,41 @@ void newerror_internal(string message) {
     e->type = exception_type;
     Object *m = new Object();
     m->sval = message;
+    m->type = str_type;
     e->setfield("message", m);
     error = e;
+}
+
+void newinstance() {
+    Object *co = GETFUNC();
+    assert(co->type == class_type);
+    Class *c = static_cast<Class *>(co);
+    Object *o = new Object();
+    o->type = c;
+cout << "newinstance" << endl;
+// TODO CHECK
+    Function* f = static_cast<Function *>(o->getfield("__init__"));
+    if (f != NULL) {
+        int localsize = LOCALSIZE();
+        gstack.push_back(f);
+        gstack.push_back(o);
+        cout << "localsize:" << localsize << endl;
+        for (int i=0; i<localsize; i++)
+            gstack.push_back(GETLOCAL(i));
+        call(f->codes, 1 + localsize);
+        gstack.pop_back();
+        gstack.pop_back();
+    }
+cout << "__init__" << endl;
+    gstack.push_back(o);
+}
+
+void newclass_internal() {
+    Class *c = new Class();
+    c->type = class_type;
+    c->sval = "class";
+    c->function = newinstance;
+    gstack.push_back(c);
 }
 
 inline Object *newint_internal(int ival) {
@@ -82,16 +121,14 @@ void newstr(string sval) {
 }
 
 void newnone() {
-    Object *o = new Object;
-    // TODO won't stay like this
-    o->ival = -100;
-    gstack.push_back(o);
+    gstack.push_back(none);
 }
 
-void newfunc(int startp) {
+void newfunc(std::vector<std::string> &codes, int startp) {
     Function *o = new Function;
     o->type = func_type;
     o->codep = startp;
+    o->codes = codes;
     gstack.push_back(o);
 }
 
@@ -114,6 +151,8 @@ cout << "object type" << o1->type << endl;
 cout << "object type" << o2->type << endl;
     gstack.pop_back();
     Object *field =o2->getfield(o1->sval);
+    if (field == NULL)
+        throw exception();
     gstack.push_back(field);
     cout << "field pushed" << endl;
 }
@@ -125,6 +164,8 @@ cout << "object type" << o1->type << endl;
     Object *o2 = gstack.back();
 cout << "object type" << o2->type << endl;
     Object *field = o2->getfield(o1->sval);
+    if (field == NULL)
+        throw exception();
     assert(field->type == builtinfunc_type || field->type == func_type);
     gstack.push_back(field);
     cout << "field pushed type " << field->type << endl;
@@ -161,7 +202,7 @@ void pushlocal(int ival) {
         exit(1);
     }
     cout << "pushed type " << gstack[bp + ival]->type << endl;
-    gstack.push_back(gstack[bp + ival]);
+    gstack.push_back(GETLOCAL(ival));
 }
 
 
@@ -170,7 +211,8 @@ void interpret_block(std::vector<std::string>& codes);
 void call(std::vector<std::string>& codes, int param_count) {
     // TODO stuff about param_count
     bp = gstack.size() - param_count;
-    Object *callable = gstack.at(bp - 1);
+
+    Object *callable = GETFUNC();
     // TODO exc
     if (callable->type == func_type) {
         Function *func = static_cast<Function *>(callable);
@@ -181,17 +223,18 @@ void call(std::vector<std::string>& codes, int param_count) {
         gstack.pop_back();
         gstack.resize(gstack.size() - param_count);
         func = static_cast<Function *>(gstack.back());
+        cout << func->type->sval << endl;
         assert(func->type == func_type);
         gstack.pop_back();
         gstack.push_back(result);
         ip = cur_ip;
-    } else if (callable->type == builtinfunc_type) {
+    } else if (callable->type == builtinfunc_type || callable->type == class_type) {
         BuiltinFunction *func = static_cast<BuiltinFunction *>(callable);
         func->function();
         Object *result = gstack.back();
         gstack.pop_back();
 // builtin funcs consume the parameters
-        assert(gstack.back()->type == builtinfunc_type);
+        assert(gstack.back()->type == builtinfunc_type || gstack.back()->type == class_type);
         gstack.pop_back();
         gstack.push_back(result);
     } else {
@@ -203,6 +246,7 @@ void call(std::vector<std::string>& codes, int param_count) {
 void swp();
 void loop(std::vector<std::string>& codes, int location) {
     Object *it = gstack.back();
+    assert(gstack.back() == it);
 // next will consume this, should be optimized later on
     gstack.push_back(it);
     newstr("next");
@@ -213,7 +257,13 @@ void loop(std::vector<std::string>& codes, int location) {
     if (error == NULL) {
         // continue, might get filled
     } else {
+        error = NULL;
         ip = location;
+        // pop the iterator and dummy none, not needed anymore
+        assert(gstack.back() == none);
+        gstack.pop_back();
+        assert(gstack.back() == it);
+        gstack.pop_back();
     }
 }
 
@@ -298,7 +348,9 @@ void interpret_block(std::vector<std::string> &codes) {
             Object *val = gstack.back();
             if (val->type == int_type)
                 cout << "popped " << val->ival << endl;
-            else
+            else if (val->type == none_type)
+                cout << "popped none" << endl;
+            else if (val->type == func_type)
                 cout << "popped func" << endl;
             gstack.pop_back();
         } else if (command == "function") {
@@ -311,7 +363,7 @@ void interpret_block(std::vector<std::string> &codes) {
             startp = labels.at(startlabel);
             cout << "function code read " << startp << endl;
 // TODO
-            newfunc(startp);
+            newfunc(codes, startp);
             cout << "next: " << codes[ip] << endl;
         } else if (command == "int") {
             int ival;
@@ -322,6 +374,8 @@ void interpret_block(std::vector<std::string> &codes) {
             string sval = ss.str().substr(4);
 // TODO check
             newstr(sval);
+        } else if (command == "dup") {
+            gstack.push_back(gstack.back());
         } else if (command == "call") {
             int count;
             ss >> count;
@@ -330,9 +384,15 @@ void interpret_block(std::vector<std::string> &codes) {
             if (error != NULL)
                 throw exception();
 // TODO check
+        } else if (command == "class") {
+            cout << "class " << endl;
+            newclass_internal();
+            if (error != NULL)
+                throw exception();
+// TODO check
+ 
         } else if (command == "return") {
-            cout << "return " << endl;
-            ret = TRUE;
+            cout << "return" << endl;
             break;
 // TODO check
         } else if (command == "pushlocal") {
@@ -415,11 +475,9 @@ void interpret_block(std::vector<std::string> &codes) {
         }
         ip++;
     }
-    if (ret == FALSE)
-        newnone();
 }
 
-void read_codes(std::stringstream& fs, std::vector<std::string>& codes) {
+void read_codes(std::stringstream& fs, std::vector<std::string> &codes) {
     std::string line;
     int index;
     int ip = 0;
@@ -433,8 +491,9 @@ void read_codes(std::stringstream& fs, std::vector<std::string>& codes) {
     }
 }
 
-Object *new_type() {
+Object *new_type(string type_name) {
     Object *type = new Object();
+    type->sval = type_name;
     type->type = NULL;
     return type;
 }
@@ -451,9 +510,13 @@ void range_func() {
 }
 
 void print_func() {
+cout << "print" << endl;
     Object *o = gstack.back();
     gstack.pop_back();
-    cout << o->ival << endl;
+    if (o->type == str_type)
+        cout << o->sval << endl;
+    else
+        cout << o->ival << endl;
     gstack.push_back(none);
 }
 
@@ -495,27 +558,29 @@ BuiltinFunction *newbuiltinfunc_internal (void(*function)()) {
 
 void init_builtins() {
     error = NULL;
-    Object *bool_type = new Object();
+    Object *bool_type = new_type("bool");
     trueobject = newbool_internal(TRUE);
     falseobject = newbool_internal(FALSE);
-    exception_type = new_type();
-    int_type = new_type();
-    func_type = new_type();
-    none_type = new_type();
-    str_type = new_type();
-    list_type = new_type();
-    builtinfunc_type = new_type();
+    exception_type = new_type("exception");
+    class_type = new_type("class");
+    int_type = new_type("int");
+    func_type = new_type("func");
+    none_type = new_type("none");
+    str_type = new_type("str");
+    list_type = new_type("list");
+    builtinfunc_type = new_type("builtin_func");
     BuiltinFunction *range = newbuiltinfunc_internal(range_func);
     globals["range"] = range;
     BuiltinFunction *iter_func = newbuiltinfunc_internal(list_iter);
     list_type->setfield("iter", iter_func);
-    listiterator_type = new_type();
+    listiterator_type = new_type("iterator");
     BuiltinFunction *next_func = newbuiltinfunc_internal(listiterator_next);
     listiterator_type->setfield("next", next_func);
     BuiltinFunction *print = newbuiltinfunc_internal(print_func);
     globals["print"] = print;
-    none_type = new_type();
+    none_type = new_type("none");
     none = new Object();
+    globals["none"] = none;
     none->type = none_type;
 }
 
@@ -524,10 +589,10 @@ int main () {
     std::fstream fs;
     fs.open("test.graspo", std::fstream::in);
     std::stringstream ss;
+    std::vector<std::string> codes;
     copy(istreambuf_iterator<char>(fs),
      istreambuf_iterator<char>(),
      ostreambuf_iterator<char>(ss));
-    std::vector<std::string> codes;
     read_codes(ss, codes);
     ip = 0;
     interpret_block(codes);

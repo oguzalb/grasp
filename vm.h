@@ -23,11 +23,15 @@ class Object {
 class Function : public Object {
     public:
     int codep;
+    std::vector<std::string> codes;
 };
 
 class BuiltinFunction : public Object {
     public:
     void (*function) ();
+};
+
+class Class : public BuiltinFunction {
 };
 
 class Bool : public Object {
