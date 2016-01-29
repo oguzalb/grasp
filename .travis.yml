@@ -1,8 +1,6 @@
 language: cpp
 sudo: true
-before_install:
-  - sudo apt-get update
 install:
-  - pip install flake8
+  - sudo pip install flake8
 script:
   - make test
