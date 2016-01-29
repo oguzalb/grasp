@@ -1,4 +1,4 @@
-from parse import (
+from parser.parse import (
     Word, quotedString, DelimitedList, Infix, Literal,
     IndentedBlock, Forward, Optional, Regex, Group,
     PostfixWithoutLast, Atom, Token, ParseError)

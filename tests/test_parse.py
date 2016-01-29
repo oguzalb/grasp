@@ -1,5 +1,5 @@
 import unittest
-from parse import Word, And, Infix, Literal, Optional
+from parser.parse import Word, And, Infix, Literal, Optional
 
 
 class Tests(unittest.TestCase):
