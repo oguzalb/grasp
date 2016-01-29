@@ -176,7 +176,7 @@ void setglobal(string name) {
     gstack.pop_back();
 }
 
-void setlocal(int ival) {
+void setlocal(unsigned int ival) {
     if (ival >= (gstack.size() - bp)) {
         cerr << "OUPSSS, size bigger than locals" << endl;
         exit(1);
@@ -196,7 +196,7 @@ void pushglobal(string name) {
     }
 }
 
-void pushlocal(int ival) {
+void pushlocal(unsigned int ival) {
     if (ival >= gstack.size() - bp) {
         cerr << "OUPSSS, size bigger than locals" << endl;
         exit(1);
@@ -338,7 +338,6 @@ std::vector<std::string> *read_func_code(std::vector<std::string> &codes) {
 }
 
 void interpret_block(std::vector<std::string> &codes) {
-    int ret = FALSE;
     while (ip < codes.size()) {
         string command;
         string param;
@@ -396,7 +395,7 @@ void interpret_block(std::vector<std::string> &codes) {
             break;
 // TODO check
         } else if (command == "pushlocal") {
-            int lindex;
+            unsigned int lindex;
             ss >> lindex;
 // TODO check
             cout << "pushlocal " << lindex << endl;
@@ -559,7 +558,7 @@ BuiltinFunction *newbuiltinfunc_internal (void(*function)()) {
 
 void init_builtins() {
     error = NULL;
-    Object *bool_type = new_type("bool");
+    bool_type = new_type("bool");
     trueobject = newbool_internal(TRUE);
     falseobject = newbool_internal(FALSE);
     exception_type = new_type("exception");

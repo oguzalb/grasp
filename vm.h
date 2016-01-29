@@ -51,9 +51,9 @@ class ListIterator : public Object {
     std::vector<Object *>::iterator *end;
 };
 
-int ip;
+unsigned int ip;
 std::vector<Object *> gstack;
-int bp;
+unsigned int bp;
 std::vector<Object *> locals;
 std::unordered_map<string, Object *> globals;
 std::unordered_map<string, int> labels;
