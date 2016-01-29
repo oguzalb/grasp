@@ -1,5 +1,9 @@
-from parse import Word, quotedString, delimitedList, Infix, Literal, IndentedBlock, Forward, Optional, Regex, Group, Postfix, LookAheadLiteral, PostfixWithoutLast, Action, Atom, Token, ParseError
+from parse import (
+    Word, quotedString, DelimitedList, Infix, Literal,
+    IndentedBlock, Forward, Optional, Regex, Group,
+    PostfixWithoutLast, Atom, Token, ParseError)
 from StringIO import StringIO
+
 
 class Parser():
     def __init__(self):
@@ -7,46 +11,56 @@ class Parser():
         self.contexts = [{}]
         self.label_counter = 0
         self.next_label = None
-    def reset(self):
-        self.code = StringIO()
-        self.contexts = [{}]
-        self.label_counter = 0
-        self.next_label = None
+
     def add_instruction(self, code):
         if self.next_label:
             self.code.write(self.next_label + ":" + code + "\n")
             self.next_label = None
         else:
             self.code.write(code + "\n")
+
     def new_label(self):
         self.label_counter += 1
         return "l"+str(self.label_counter)
+
     def set_next_label(self, label):
         if self.next_label is not None:
             self.add_instruction("nop")
         self.next_label = label
+
     def __repr__(self):
         return "code:\n%s" % self.dumpcode()
+
     def dumpcode(self):
-        return self.code.getvalue() + ("" if self.next_label is None else self.next_label + ":nop\n")
+        return self.code.getvalue() + ("" if self.next_label is None
+                                       else self.next_label + ":nop\n")
+
     def push_context(self):
         self.contexts.append({})
+
     def pop_context(self):
         return self.contexts.pop()
+
     def add_var(self, varname):
         context = self.contexts[-1]
         if varname not in context:
             context[varname] = len(context)
+
     def get_var(self, varname):
         context = self.contexts[-1]
         if varname not in context:
             return -1
         return context[varname]
+
     def __str__(self):
         return self.__repr__()
+
+
 word = Word()
 varname = Word()
 string = quotedString.copy()
+
+
 def varname_action(parser, tokens):
     var_index = parser.get_var(tokens[0])
     if var_index != -1:
@@ -55,35 +69,54 @@ def varname_action(parser, tokens):
         parser.add_instruction("pushglobal %s" % tokens[0])
     return tokens
 varname.set_action(varname_action)
+
+
 def string_action(parser, tokens):
     parser.add_instruction("str %s" % tokens[0][1:-1])
     return tokens
 string.set_action(string_action)
 number = Regex("\w+")
+
+
 def number_action(parser, tokens):
     parser.add_instruction("int %s" % tokens[0])
     return tokens
 number.set_action(number_action)
 atom = varname | string | number
 andexpr_container = Forward()
-callparams = Literal('(') + Optional(delimitedList(andexpr_container, Literal(","))) + Literal(")")
+callparams = (
+    Literal('(') +
+    Optional(DelimitedList(andexpr_container, Literal(","))) +
+    Literal(")"))
 funccall = Group(callparams)
 methodcall = Group(callparams)
+
+
 def infix_action(name):
     def expr_action(parser, tokens):
         parser.add_instruction(name)
         return tokens
     return expr_action
+
+
 def funccall_action(parser, tokens):
-    parser.add_instruction("call %s" % (len(tokens[0][1]) if tokens[0][1] else 0))
+    param_count = tokens[0][1]
+    parser.add_instruction("call %s" % (
+        len(param_count) if param_count else 0))
     return tokens
 funccall.set_action(funccall_action)
+
+
 def methodcall_action(parser, tokens):
     parser.add_instruction("swp")
-    parser.add_instruction("call %s" % (len(tokens[0][1]) + 1 if tokens[0][1] else 1))
+    param_count = tokens[0][1]
+    parser.add_instruction("call %s" % (
+        len(param_count) + 1 if param_count else 1))
     return tokens
 methodcall.set_action(methodcall_action)
 access_op = Literal(".")
+
+
 def accessor_action(parser, tokens):
     parser.add_instruction("str " + tokens[0][1])
     parser.add_instruction("getfield")
@@ -95,12 +128,15 @@ last_accessor = access_op + fieldname
 last_accessor_call = access_op + fieldname + methodcall
 trailerwithcall = last_accessor_call
 trailerwithoutcall = Group(last_accessor)
-trailer = atom + Optional(accessor) + Optional(trailerwithcall | trailerwithoutcall | funccall)
+trailer = atom + Optional(accessor) + Optional(
+    trailerwithcall | trailerwithoutcall | funccall)
+
+
 def trailerwithcall_process(children, parser):
     parser.add_instruction("str " + children[0][1][0])
     parser.add_instruction("getmethod")
     return [child.process(child, parser) for child in children[0]]
-        
+
 trailerwithcall.process = trailerwithcall_process
 trailerwithoutcall.set_action(accessor_action)
 divexpr = Infix(trailer, Literal('/'))
@@ -120,12 +156,16 @@ andexpr_container << andexpr
 andexpr.set_action(infix_action('and'))
 
 returnexpr = Literal('return') + andexpr
+
+
 def return_action(parser, tokens):
     parser.add_instruction("return")
     return tokens
 returnexpr.set_action(return_action)
 # return is first, expr can get return as identifier!!!
 exprstmt = Group(andexpr)
+
+
 def exprstmt_action(parser, tokens):
     parser.add_instruction("pop")
     return tokens
@@ -135,6 +175,8 @@ exprstmt.set_action(exprstmt_action)
 rightvalue = Group(andexpr)
 setfield = access_op + fieldname
 simpleassgmt = Word() + Literal("=") + Group(andexpr) + Literal("\n")
+
+
 def simpleassgmt_action(parser, tokens):
     var_index = parser.get_var(tokens[0])
     if var_index != -1:
@@ -143,8 +185,11 @@ def simpleassgmt_action(parser, tokens):
         parser.add_instruction("setglobal %s" % tokens[0])
     return tokens
 simpleassgmt.set_action(simpleassgmt_action)
- 
-assgmt = varname + Optional(accessor) + setfield + Literal("=") + Group(andexpr) + Literal("\n")
+
+assgmt = (varname + Optional(accessor) + setfield +
+          Literal("=") + Group(andexpr) + Literal("\n"))
+
+
 def assgmt_action(parser, tokens):
     parser.add_instruction("str " + tokens[2][1])
     parser.add_instruction("swp")
@@ -152,6 +197,7 @@ def assgmt_action(parser, tokens):
     return tokens
 assgmt.set_action(assgmt_action)
 stmt = Forward()
+
 
 class IfAtom(Atom):
     def process(self, children, parser):
@@ -163,6 +209,7 @@ class IfAtom(Atom):
             self[1].process(self[0], parser)
         return self
 
+
 class IfPart(Atom):
     def process(self, children, parser, ifend):
         partend = parser.new_label()
@@ -173,10 +220,12 @@ class IfPart(Atom):
         parser.set_next_label(partend)
         return self
 
+
 class IfStmt(Token):
     def parse(self, text, i):
         # not a nice solution, will have a look later
         if_indent = IndentedBlock.indents[-1]
+
         def parse_ifpart(tag, text, i):
             # space? solved but is it nice?
             try:
@@ -190,6 +239,7 @@ class IfStmt(Token):
             block, i = IndentedBlock(stmt).parse(text, i)
             ifpart.append(block)
             return ifpart, i
+
         def parse_else(text, i):
             indent, new_i = Regex("\s*").parse(text, i)
             if new_i - i != if_indent:
@@ -207,8 +257,7 @@ class IfStmt(Token):
         ifpart, i = parse_ifpart("if", text, i)
         if ifpart is None:
             raise ParseError("not if", i)
-        ifparts = []
-        ifparts.append(ifpart)
+        ifparts = [ifpart]
         while True:
             indent, new_i = Regex("\s*").parse(text, i)
             if new_i - i != if_indent:
@@ -223,9 +272,12 @@ class IfStmt(Token):
         if elsepart is not None:
             results.append(elsepart)
         return results, i
-        
+
 ifstmt = IfStmt()
-forstmt = Literal("for") + Word() + Literal('in') + Group(andexpr) + Literal('\n') + IndentedBlock(stmt)
+forstmt = (Literal("for") + Word() + Literal('in') +
+           Group(andexpr) + Literal('\n') + IndentedBlock(stmt))
+
+
 def forstmt_process(children, parser):
     startlabel = parser.new_label()
     children[0][3].process(children[0][3], parser)
@@ -244,6 +296,7 @@ def forstmt_process(children, parser):
     return []
 forstmt.process = forstmt_process
 
+
 def funcdef_action(parser, tokens):
     parser.add_instruction("pushglobal none")
     parser.add_instruction("return")
@@ -251,6 +304,8 @@ def funcdef_action(parser, tokens):
 funcdef.set_action(funcdef_action)
 
 namedfuncdef = Group(funcdef)
+
+
 def namedfuncdef_action(parser, tokens):
     # TODO this return value issue should be fixed on parse lib
     parser.set_next_label(tokens[0][0][2])
@@ -261,18 +316,22 @@ def namedfuncdef_action(parser, tokens):
 namedfuncdef.set_action(namedfuncdef_action)
 
 classmethoddef = Group(funcdef)
+
+
 def classmethoddef_action(parser, tokens):
     parser.set_next_label(tokens[0][0][2])
     parser.add_instruction("dup")
-    parser.add_instruction("str %s"% tokens[0][0][0])
+    parser.add_instruction("str %s" % tokens[0][0][0])
     parser.add_instruction("function %s" % tokens[0][0][1])
     parser.add_instruction("setfield")
     parser.pop_context()
     return tokens
-
 classmethoddef.set_action(classmethoddef_action)
 
-classstmt = Literal('class') + Word() + Literal('\n') + IndentedBlock(classmethoddef)
+classstmt = (Literal('class') + Word() +
+             Literal('\n') + IndentedBlock(classmethoddef))
+
+
 def classstmt_process(children, parser):
     parser.add_instruction("class")
     parser.add_instruction("dup")
@@ -284,10 +343,14 @@ def classstmt_process(children, parser):
 
 classstmt.process = classstmt_process
 
-stmt << (namedfuncdef | assgmt | simpleassgmt | primitivestmt | ifstmt | forstmt | classstmt | Regex('\s+'))
+stmt << (namedfuncdef | assgmt | simpleassgmt | primitivestmt
+         | ifstmt | forstmt | classstmt | Regex('\s+'))
 
 
-defparams = Literal('(') + Optional(delimitedList(Word(), Literal(","))) + Literal(")")
+defparams = (Literal('(') +
+             Optional(DelimitedList(Word(), Literal(","))) + Literal(")"))
+
+
 def defparams_action(parser, tokens):
     if tokens[1] is not None:
         for param in tokens[1]:
@@ -295,6 +358,8 @@ def defparams_action(parser, tokens):
     return tokens
 defparams.set_action(defparams_action)
 funcname = Word()
+
+
 def funcname_action(parser, tokens):
     endlabel = parser.new_label()
     parser.add_instruction("jmp " + endlabel)
@@ -307,8 +372,7 @@ funcdef << funcname + defparams + Literal('->\n') + IndentedBlock(stmt)
 main = IndentedBlock(stmt)
 
 parser = Parser()
-main.parseString(parser,
-"""
+code = """
 class Person
     __init__(self, name) ->
         self.name = name
@@ -317,7 +381,7 @@ class Person
 person = Person("oguz")
 person.hello()
 """
-)
+main.parse_string(parser, code)
 
 print parser
 with open("test.graspo", "w") as f:

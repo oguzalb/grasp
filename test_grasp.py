@@ -2,10 +2,11 @@ import unittest
 from grasp import Parser
 from grasp import main
 
+
 class GraspTest(unittest.TestCase):
     def _test_code(self, code, output):
         parser = Parser()
-        main.parseString(parser, code)
+        main.parse_string(parser, code)
         self.assertEquals(parser.dumpcode(), output)
 
     def test_varname(self):
@@ -13,6 +14,7 @@ class GraspTest(unittest.TestCase):
 
     def test_trailer(self):
         self._test_code("var.field1\n", "pushglobal var\nstr field1\ngetfield\npop\n")
+
     def test_expression(self):
         # easier to see
         tests = (
