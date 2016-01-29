@@ -38,7 +38,7 @@ class Atom(list):
             return result
         return result[0] if len(result) else None
 
-class Token():
+class Token(object):
     def __init__(self, process=None):
         self.process = process
         self.action = None
@@ -58,8 +58,7 @@ class Token():
 
 class Action(Token):
     def __init__(self, **kwargs):
-        # change all
-        Token.__init__(self, **kwargs)
+        super(Action, self).__init__(**kwargs)
     def parse(self, text, i):
         results = Atom(process=self.process)
         results.set_action(self.action)
@@ -67,7 +66,7 @@ class Action(Token):
 
 class And(Token):
     def __init__(self, token, token2):
-        Token.__init__(self)
+        super(And, self).__init__()
         self.patterns = [token, token2]
     def __add__(self, pattern):
         self.patterns.append(pattern)
@@ -84,7 +83,7 @@ class And(Token):
 
 class Or(Token):
     def __init__(self, token, token2):
-        Token.__init__(self)
+        super(Or, self).__init__()
         self.alternatives = [token, token2]
     def __or__(self, alternative):
         self.alternatives.append(alternative)
@@ -108,7 +107,7 @@ class Or(Token):
 import re
 class Regex(Token):
     def __init__(self, pattern):
-        Token.__init__(self)
+        super(Regex, self).__init__()
         self.pattern = re.compile(pattern, 0)
     def parse(self, text, i):
         i = pass_space(text, i)
@@ -126,7 +125,7 @@ class Regex(Token):
 
 class Forward(Token):
     def __init__(self):
-        Token.__init__(self)
+        super(Forward, self).__init__()
         self.copies = []
     def parse(self, text, i):
         results = Atom(single=True, process=self.process)
@@ -141,7 +140,7 @@ class IndentedBlock(Token):
     # not reentrant
     indents = [-1]
     def __init__(self, stmt):
-        Token.__init__(self)
+        super(IndentedBlock, self).__init__()
         self.stmt = stmt
     def parse(self, text, i):
         block = Atom(process=self.process)
@@ -161,7 +160,7 @@ class IndentedBlock(Token):
 
 class Literal(Token):
     def __init__(self, literal):
-        Token.__init__(self)
+        super(Literal, self).__init__()
         self.literal = literal
     def parse(self, text, i):
         i = pass_space(text, i)
@@ -177,7 +176,7 @@ class Literal(Token):
 
 class LookAheadLiteral(Literal):
     def __init__(self, literal):
-        Literal.__init__(self, literal)
+        super(Literal, self).__init__(literal)
         self.literal = literal
     def parse(self, text, i):
         result, _ = Literal.parse(self, text, i)
@@ -185,7 +184,7 @@ class LookAheadLiteral(Literal):
 
 class Infix(Token):
     def __init__(self, operand, operator):
-        Token.__init__(self)
+        super(Infix, self).__init__()
         self.operator = operator
         self.operand = operand
     def parse(self, text, i):
@@ -210,7 +209,7 @@ class Infix(Token):
 
 class Postfix(Token):
     def __init__(self, operator):
-        Token.__init__(self)
+        super(Postfix, self).__init__()
         self.operator = operator
     def parse(self, text, i):
         results = Atom(process=self.process)
@@ -231,7 +230,7 @@ class Postfix(Token):
 
 class PostfixWithoutLast(Token):
     def __init__(self, operator):
-        Token.__init__(self)
+        super(PostfixWithoutLast, self).__init__()
         self.operator = operator
     def parse(self, text, i):
         results = Atom(process=self.process)
@@ -259,7 +258,7 @@ class PostfixWithoutLast(Token):
        
 class Optional(Token):
     def __init__(self, token):
-        Token.__init__(self)
+        super(Optional, self).__init__()
         self.token = token
     def parse(self, text, i):
         try:
@@ -273,7 +272,7 @@ class Optional(Token):
 
 class delimitedList(Token):
     def __init__(self, delimited, delimiter):
-        Token.__init__(self)
+        super(delimitedList, self).__init__()
         self.delimiter = delimiter
         self.delimited = delimited
     def parse(self, text, i):
@@ -294,11 +293,11 @@ quotedString = Regex(r'''(?:"(?:[^"\n\r\\]|(?:"")|(?:\\x[0-9a-fA-F]+)|(?:\\.))*"
 
 class Word(Regex):
     def __init__(self):
-        Regex.__init__(self, "[a-zA-Z_]\w*")
+        super(Word, self).__init__("[a-zA-Z_]\w*")
 
 class Group(Token):
     def __init__(self, token):
-        Token.__init__(self)
+        super(Group, self).__init__()
         self.token = token
     def parse(self, text, i):
         results = Atom(single=True, process=self.process)
