@@ -3,7 +3,6 @@ sudo: true
 before_install:
   - sudo apt-get update
 install:
-  - sudo apt-cache search flake8
-  - sudo apt-get install python-flake8
+  - pip install flake8
 script:
   - make test
