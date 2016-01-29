@@ -545,6 +545,7 @@ assert(it_obj->type == listiterator_type);
         gstack.push_back(element);
     } else {
         gstack.push_back(none);
+        // TODO when exception types implemented
         newerror_internal("STOP ITERATION!!!");
     }
 }
