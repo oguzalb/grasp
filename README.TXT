@@ -1,5 +1,3 @@
-Parser written with python which complies with API of pyparsing, will contain a compiler and stack machine for imaginary language grasp
-
 === STILL TRYING STUFF, AWFULL CODE ===
 
 
