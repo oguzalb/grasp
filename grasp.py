@@ -343,8 +343,8 @@ def classstmt_process(children, parser):
 
 classstmt.process = classstmt_process
 
-stmt << (namedfuncdef | assgmt | simpleassgmt | primitivestmt
-         | ifstmt | forstmt | classstmt | Regex('\s+'))
+stmt << (namedfuncdef | assgmt | simpleassgmt | primitivestmt |
+         ifstmt | forstmt | classstmt | Regex('\s+'))
 
 
 defparams = (Literal('(') +

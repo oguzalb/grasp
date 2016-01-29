@@ -1,6 +1,6 @@
 language: cpp
 sudo: true
 install:
-  - sudo pip install flake8
+  - sudo pip install flake8==2.4.1
 script:
   - make test
