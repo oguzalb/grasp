@@ -10,14 +10,23 @@
 #include <stdexcept>
 using namespace std;
 class Function;
+class Class;
 class Object {
     public:
-    string sval;
-    int ival;
     std::unordered_map<string, Object *> fields;
     void setfield(string name, Object* object);
     Object *getfield(string name);
-    Object *type;
+    Class *type;
+};
+
+class Int : public Object {
+    public:
+    int ival;
+};
+
+class String : public Object {
+    public:
+    string sval;
 };
 
 class Function : public Object {
@@ -32,6 +41,9 @@ class BuiltinFunction : public Object {
 };
 
 class Class : public BuiltinFunction {
+    public:
+    Class(string type_name);
+    string type_name;
 };
 
 class Bool : public Object {
@@ -41,6 +53,7 @@ class Bool : public Object {
 
 class List : public Object {
     public:
+    List();
     std::vector<Object *> *list;
 };
 
