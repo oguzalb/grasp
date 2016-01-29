@@ -56,7 +56,7 @@ def varname_action(parser, tokens):
     return tokens
 varname.set_action(varname_action)
 def string_action(parser, tokens):
-    parser.add_instruction("str %s" % tokens[0])
+    parser.add_instruction("str %s" % tokens[0][1:-1])
     return tokens
 string.set_action(string_action)
 number = Regex("\w+")
@@ -305,87 +305,8 @@ def funcname_action(parser, tokens):
 funcname.set_action(funcname_action)
 funcdef << funcname + defparams + Literal('->\n') + IndentedBlock(stmt)
 main = IndentedBlock(stmt)
+
 parser = Parser()
-print varname.parseString(parser, "asdasd")
-print parser
-parser.reset()
-print trailer.parseString(parser, "asdasd")
-print parser
-parser.reset()
-divexpr.parseString(parser, "a/b")
-print parser
-parser.reset()
-subexpr.parseString(parser, "a-b-c")
-print parser
-parser.reset()
-addexpr.parseString(parser, "a-b+c*d/e")
-print parser
-parser.reset()
-andexpr.parseString(parser, "a-b+c*d/e or f and g")
-print parser
-parser.reset()
-callparams.parseString(parser, "(\"str1\", \"str3\")")
-print parser
-parser.reset()
-andexpr.parseString(parser, "func1(\"str1\", \"str3\")")
-print parser
-parser.reset()
-returnexpr.parseString(parser, 'return a+b')
-print parser
-parser.reset()
-namedfuncdef.parseString(parser,
-"""func1(a,b) ->
-    func2(c)
-    return a+b
-"""
-)
-print parser
-parser.reset()
-main.parseString(parser,
-"""func1(a,b) ->
-    func2()
-    return a+b
-func1(c,d)
-"""
-)
-print parser
-parser.reset()
-main.parseString(parser,
-"""func1(a) ->
-    return a.b.c
-func1(1)
-"""
-)
-print parser
-parser.reset()
-main.parseString(parser,
-"""func1(a,b) ->
-    return a+b
-func1.func = func1
-func1.func(1,2)
-"""
-)
-print parser
-parser.reset()
-main.parseString(parser,
-"""perm(a) ->
-    if a == 1
-        return 1
-    else
-        return a + perm(a - 1)
-perm(5)
-for a in range(5)
-    print(a)
-perm2(a) ->
-    tot = 0
-    for i in range(a)
-        tot = tot + i
-    return tot
-print(perm2(5))
-"""
-)
-print parser
-parser.reset()
 main.parseString(parser,
 """
 class Person
