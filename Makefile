@@ -1,5 +1,5 @@
 LIBS=
-FLAGS=-std=c++0x -g -Wall -v
+FLAGS=-std=c++0x -g -Wall
 TYPES=int.cpp string.cpp object.cpp builtin_function.cpp class.cpp bool.cpp function.cpp list_iterator.cpp list.cpp
 SOURCES=$(TYPES:%.cpp=types/%.cpp)
 OBJECTS=$(SOURCES:.cpp=.o)
@@ -12,10 +12,9 @@ all: ${OBJECTS}
 test: all
 	flake8 parser/parse.py grasp.py
 	python -m unittest discover tests
-	python grasp.py
-	./vm.out
-
+	./grasp example.grasp
+	./vm.out example.graspo
 clean:
-	rm -f vm.out
+	rm -f vm.out example.graspo
 	rm -f types/*.o
 	rm -Rf vm.out.dSYM

@@ -1,3 +1,4 @@
+import sys
 from parser.parse import (
     Word, quotedString, DelimitedList, Infix, Literal,
     IndentedBlock, Forward, Optional, Regex, Group,
@@ -371,19 +372,26 @@ funcname.set_action(funcname_action)
 funcdef << funcname + defparams + Literal('->\n') + IndentedBlock(stmt)
 main = IndentedBlock(stmt)
 
-parser = Parser()
-code = """
-class Person
-    __init__(self, name) ->
-        self.name = name
-    hello(self) ->
-        print(self.name)
-person = Person("oguz")
-person.hello()
-"""
-main.parse_string(parser, code)
 
-print parser
-with open("test.graspo", "w") as f:
-    f.write(parser.dumpcode())
-    f.close()
+def printerr(msg):
+    sys.stderr.write(msg)
+
+
+if __name__ == "__main__":
+    import argparse
+    argparser = argparse.ArgumentParser(description='Compile grasp code')
+    argparser.add_argument(
+        'file', nargs=1, help='File to compile')
+    args = argparser.parse_args()
+    filename = args.file[0]
+    if not filename.endswith(".grasp"):
+        printerr('Source file should end with .grasp\n')
+        exit(1)
+    with open(filename, 'r') as sourcef:
+        code = sourcef.read()
+        parser = Parser()
+        main.parse_string(parser, code)
+        outputfilename = filename + 'o'
+        print parser
+        with open(outputfilename, 'w') as outputf:
+            outputf.write(parser.dumpcode())

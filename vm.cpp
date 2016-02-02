@@ -515,10 +515,23 @@ void init_builtins() {
     none->type = none_type;
 }
 
-int main () {
+bool ends_with(const string& s, const string& ending) {
+ return (s.size() >= ending.size()) && std::equal(ending.rbegin(), ending.rend(), s.rbegin());
+}
+
+int main (int argc, char *argv[]) {
+    if (argc != 2) {
+        cerr << "Needs file as an argument" << endl;
+        return 1;
+    }
+    string sourcefilename = argv[1];
+    if (!ends_with(sourcefilename, ".graspo")) {
+        cerr << "Needs a file with extension .graspo as an argument" << endl;
+        return 1;
+    }
     init_builtins();
     std::fstream fs;
-    fs.open("test.graspo", std::fstream::in);
+    fs.open(sourcefilename, std::fstream::in);
     std::stringstream ss;
     std::vector<std::string> codes;
     copy(istreambuf_iterator<char>(fs),

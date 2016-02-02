@@ -1,0 +1,7 @@
+class Person
+    __init__(self, name) ->
+        self.name = name
+    hello(self) ->
+        print(self.name)
+person = Person("oguz")
+person.hello()
