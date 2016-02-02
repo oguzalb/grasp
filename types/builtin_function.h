@@ -5,6 +5,7 @@
 class BuiltinFunction : public Object {
     public:
     void (*function) ();
+    BuiltinFunction(void(*function)());
 };
 
 #endif

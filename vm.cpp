@@ -1,6 +1,7 @@
 #include "vm.h"
 #include "assert.h"
 
+
 unsigned int ip;
 std::vector<Object *> gstack;
 unsigned int bp;
@@ -23,14 +24,16 @@ Class *exception_type;
 Class *class_type;
 Class *int_type;
 
-#define GETLOCAL(x) (gstack[bp+x])
-#define GETFUNC() (gstack.at(bp-1))
-#define LOCALSIZE() (gstack.size()-bp)
-
 template<typename T> T assert_type(Object * o, Class *type)
 {
     assert(o->type == type);
     return static_cast<T>(o);
+}
+
+inline Object *POP() {
+    Object *o = gstack.back();
+    gstack.pop_back();
+    return o;
 }
 
 void call(std::vector<std::string>& codes, int param_count);
@@ -62,109 +65,95 @@ cout << "newinstance" << endl;
     Function* f = static_cast<Function *>(o->getfield("__init__"));
     if (f != NULL) {
         int localsize = LOCALSIZE();
-        gstack.push_back(f);
-        gstack.push_back(o);
+        PUSH(f);
+        PUSH(o);
         cout << "localsize:" << localsize << endl;
         for (int i=0; i<localsize; i++)
-            gstack.push_back(GETLOCAL(i));
+            PUSH(GETLOCAL(i));
         call(f->codes, 1 + localsize);
-        gstack.pop_back();
-        gstack.pop_back();
+        POP();
+        POP();
     }
 cout << "__init__" << endl;
-    gstack.push_back(o);
+    PUSH(o);
 }
 
 void newclass_internal() {
-    Class *c = new Class("custom");
-    c->function = newinstance;
-    gstack.push_back(c);
+    Class *c = new Class("custom", newinstance);
+    PUSH(c);
 }
 
 void newint(int ival) {
     Object *o = new Int(ival);
-    gstack.push_back(o);
+    PUSH(o);
 }
 
 void newstr(string sval) {
     String *o = new String(sval);
     cout << "newstr: " << sval << endl;
-    gstack.push_back(o);
+    PUSH(o);
 }
 
 void newnone() {
-    gstack.push_back(none);
+    PUSH(none);
 }
 
 void newfunc(std::vector<std::string> &codes, int startp) {
-    Function *o = new Function;
-    o->type = func_type;
-    o->codep = startp;
-    o->codes = codes;
-    gstack.push_back(o);
+    Function *o = new Function(codes, startp);
+    PUSH(o);
 }
 
 void setfield() {
-    Object *o1 = gstack.back();
-    gstack.pop_back();
-    Object *o2 = gstack.back();
+    Object *o1 = POP();
     // TODO exception
-    assert(o2->type == str_type);
-    String *s = static_cast<String *>(o2);
-    gstack.pop_back();
-    Object *o3 = gstack.back();
-    gstack.pop_back();
+    String *s = POP_TYPE(String, str_type);
+    Object *o3 = POP();
     o3->setfield(s->sval, o1);
     cout << "field set: " << s->sval << endl;
 }
 
 void getfield() {
-    String *o1 = assert_type<String *>(gstack.back(), str_type);
+    String *o1 = POP_TYPE(String, str_type);
 cout << "object type" << o1->type << endl;
-    gstack.pop_back();
-    Object *o2 = gstack.back();
+    Object *o2 = POP();
 cout << "object type" << o2->type << endl;
-    gstack.pop_back();
     Object *field =o2->getfield(o1->sval);
     if (field == NULL)
         throw exception();
-    gstack.push_back(field);
+    PUSH(field);
     cout << "field pushed" << endl;
 }
 
 void getmethod() {
-    String *o1 = assert_type<String *>(gstack.back(), str_type);
+    String *o1 = POP_TYPE(String, str_type);
 cout << "object type" << o1->type << endl;
-    gstack.pop_back();
-    Object *o2 = gstack.back();
+    Object *o2 = TOP();
 cout << "object type" << o2->type << endl;
     Object *field = o2->getfield(o1->sval);
     if (field == NULL)
         throw exception();
     assert(field->type == builtinfunc_type || field->type == func_type);
-    gstack.push_back(field);
+    PUSH(field);
     cout << "field pushed type " << field->type << endl;
 }
 
 void setglobal(string name) {
-    globals[name] = gstack.back();
-    gstack.pop_back();
+    globals[name] = POP();
 }
 
 void setlocal(unsigned int ival) {
-    if (ival >= (gstack.size() - bp)) {
+    if (ival >= (LOCALSIZE())) {
         cerr << "OUPSSS, size bigger than locals" << endl;
         exit(1);
     }
 // must be improved for local defs
-    Object *oval = gstack.back();
+    Object *oval = POP();
     gstack[bp + ival] = oval;
-    gstack.pop_back();
 }
 
 void pushglobal(string name) {
     try {
-        gstack.push_back(globals.at(name));
+        PUSH(globals.at(name));
     } catch (const std::out_of_range& oor) {
         cerr << "Global named " << name << " not found" << endl;
         exit(1);
@@ -172,12 +161,12 @@ void pushglobal(string name) {
 }
 
 void pushlocal(unsigned int ival) {
-    if (ival >= gstack.size() - bp) {
+    if (ival >= LOCALSIZE()) {
         cerr << "OUPSSS, size bigger than locals" << endl;
         exit(1);
     }
-    cout << "pushed type " << gstack[bp + ival]->type << endl;
     gstack.push_back(GETLOCAL(ival));
+    cout << "pushed type " << TOP() << endl;
 }
 
 
@@ -190,28 +179,24 @@ void call(std::vector<std::string>& codes, int param_count) {
     Object *callable = GETFUNC();
     // TODO exc
     if (callable->type == func_type) {
+// TODO
         Function *func = static_cast<Function *>(callable);
         int cur_ip = ip;
         ip = func->codep;
         interpret_block(codes);
-        Object *result = gstack.back();
-        gstack.pop_back();
+        Object *result = POP();
         gstack.resize(gstack.size() - param_count);
-        func = static_cast<Function *>(gstack.back());
-        cout << func->type->type_name << endl;
-        assert(func->type == func_type);
-        gstack.pop_back();
-        gstack.push_back(result);
+        func = POP_TYPE(Function, func_type);
+        PUSH(result);
         ip = cur_ip;
     } else if (callable->type == builtinfunc_type || callable->type == class_type) {
         BuiltinFunction *func = static_cast<BuiltinFunction *>(callable);
         func->function();
-        Object *result = gstack.back();
-        gstack.pop_back();
+        Object *result = POP();
 // builtin funcs consume the parameters
-        assert(gstack.back()->type == builtinfunc_type || gstack.back()->type == class_type);
-        gstack.pop_back();
-        gstack.push_back(result);
+        BuiltinFunction* func_after = static_cast<BuiltinFunction *>(POP());
+        assert(func_after == func);
+        PUSH(result);
     } else {
         cout << callable->type << endl;
         assert(FALSE);
@@ -220,10 +205,9 @@ void call(std::vector<std::string>& codes, int param_count) {
 
 void swp();
 void loop(std::vector<std::string>& codes, int location) {
-    Object *it = gstack.back();
-    assert(gstack.back() == it);
+    Object *it = TOP();
 // next will consume this, should be optimized later on
-    gstack.push_back(it);
+    PUSH(it);
     newstr("next");
     getmethod();
     swp();
@@ -235,67 +219,53 @@ void loop(std::vector<std::string>& codes, int location) {
         error = NULL;
         ip = location;
         // pop the iterator and dummy none, not needed anymore
-        assert(gstack.back() == none);
-        gstack.pop_back();
-        assert(gstack.back() == it);
-        gstack.pop_back();
+        assert(POP() == none);
+        assert(POP() == it);
     }
 }
 
 void add() {
-    Int *o1 = assert_type<Int *>(gstack.back(), int_type);
-    gstack.pop_back();
-    Int *o2 = assert_type<Int *>(gstack.back(), int_type);
-    gstack.pop_back();
+    Int *o1 = POP_TYPE(Int, int_type);
+    Int *o2 = POP_TYPE(Int, int_type);
     // TODO exc
     newint(o1->ival + o2->ival);
 }
  
 void sub() {
-    Int *o1 = assert_type<Int *>(gstack.back(), int_type);
-    gstack.pop_back();
-    Int *o2 = assert_type<Int *>(gstack.back(), int_type);
-    gstack.pop_back();
+    Int *o1 = POP_TYPE(Int, int_type);
+    Int *o2 = POP_TYPE(Int, int_type);
     // TODO exc
     newint(o2->ival - o1->ival);
 }
  
 void mul() {
-    Int *o1 = assert_type<Int *>(gstack.back(), int_type);
-    gstack.pop_back();
-    Int *o2 = assert_type<Int *>(gstack.back(), int_type);
-    gstack.pop_back();
+    Int *o1 = POP_TYPE(Int, int_type);
+    Int *o2 = POP_TYPE(Int, int_type);
     // TODO exc
     newint(o1->ival * o2->ival);
 }
  
 void div() {
-    Int *o1 = assert_type<Int *>(gstack.back(), int_type);
-    gstack.pop_back();
-    Int *o2 = assert_type<Int *>(gstack.back(), int_type);
-    gstack.pop_back();
+    Int *o1 = POP_TYPE(Int, int_type);
+    Int *o2 = POP_TYPE(Int, int_type);
     // TODO exc
     newint(o2->ival / o1->ival);
 }
 
 void swp() {
-    Object *o1 = gstack.back();
-    gstack.pop_back();
-    Object *o2 = gstack.back();
-    gstack.pop_back();
-    gstack.push_back(o1);
-    gstack.push_back(o2);
+    Object *o1 = POP();
+    Object *o2 = POP();
+    PUSH(o1);
+    PUSH(o2);
 }
 
 void equals() {
-    Int *o1 = assert_type<Int *>(gstack.back(), int_type);
-    gstack.pop_back();
-    Int *o2 = assert_type<Int *>(gstack.back(), int_type);
-    gstack.pop_back();
+    Int *o1 = POP_TYPE(Int, int_type);
+    Int *o2 = POP_TYPE(Int, int_type);
     if (o1->ival == o2->ival) {
-        gstack.push_back(trueobject);
+        PUSH(trueobject);
     } else {
-        gstack.push_back(falseobject);
+        PUSH(falseobject);
     }
 }
 
@@ -319,14 +289,13 @@ void interpret_block(std::vector<std::string> &codes) {
         std::stringstream ss(codes[ip]);
         ss >> command;
         if (command == "pop") {
-            Object *val = gstack.back();
+            Object *val = POP();
             if (val->type == int_type)
                 cout << "popped " << assert_type<Int *>(val, int_type)->ival << endl;
             else if (val->type == none_type)
                 cout << "popped none" << endl;
             else if (val->type == func_type)
                 cout << "popped func" << endl;
-            gstack.pop_back();
         } else if (command == "function") {
             string name;
 // TODO check
@@ -439,8 +408,7 @@ void interpret_block(std::vector<std::string> &codes) {
             int location = labels.at(label);
 // TODO check
             cout << "jnt " << location << endl;
-            Object *o = gstack.back();
-            gstack.pop_back();
+            Object *o = POP();
             if (o == falseobject)
                 ip = location-1; // will increase at the end of loop
         } else {
@@ -466,87 +434,82 @@ void read_codes(std::stringstream& fs, std::vector<std::string> &codes) {
 }
 
 void range_func() {
-    Int *max = assert_type<Int *>(gstack.back(), int_type);
-    gstack.pop_back();
+    Int *max = POP_TYPE(Int, int_type);
     List *list = new List();
     for (int i=0; i<max->ival; i++)
         list->list->push_back(new Int(i));
-    gstack.push_back(list);
+    PUSH(list);
 }
 
 void print_func() {
 cout << "print" << endl;
-    Object *o = gstack.back();
-    gstack.pop_back();
+    Object *o = POP();
     if (o->type == str_type)
-        {cout << "asdadsasd" << endl;cout << assert_type<String *>(o, str_type)->sval << endl;}
+        cout << assert_type<String *>(o, str_type)->sval << endl;
     else if (o->type == int_type)
         cout << assert_type<Int *>(o, int_type)->ival << endl;
     else
         assert(FALSE);
-    gstack.push_back(none);
+    PUSH(none);
 }
 
 void list_iter() {
-    Object *self_obj = gstack.back();
+    Object *self_obj = POP();
 // TODO remove assert
     assert(self_obj->type == list_type);
     List *self = static_cast<List *>(self_obj);
-    gstack.pop_back();
     ListIterator *it_obj = new ListIterator(self->list);
     it_obj->type = listiterator_type;
-    gstack.push_back(it_obj);
+    PUSH(it_obj);
 }
 
 void listiterator_next() {
-    Object *self_obj = gstack.back();
+    Object *self_obj = POP();
 assert(self_obj->type == listiterator_type);
 // TODO remove assert
     ListIterator *it_obj = static_cast<ListIterator *>(self_obj);
 assert(it_obj->type == listiterator_type);
-    gstack.pop_back();
     Object *element;
     if (*it_obj->it != *it_obj->end) {
         element = static_cast<Object *>(**it_obj->it);
         (*it_obj->it)++;
-        gstack.push_back(element);
+        PUSH(element);
     } else {
-        gstack.push_back(none);
+        PUSH(none);
         // TODO when exception types implemented
         newerror_internal("STOP ITERATION!!!");
     }
 }
 
 BuiltinFunction *newbuiltinfunc_internal (void(*function)()) {
-    BuiltinFunction *func = new BuiltinFunction();
-    func->type = builtinfunc_type;
-    func->function = function;
+    BuiltinFunction *func = new BuiltinFunction(function);
     return func;
 }
 
 void init_builtins() {
     error = NULL;
-    bool_type = new Class("bool");
+    // TODO new instance functions should be implemented
+    bool_type = new Class("bool", NULL);
     trueobject = newbool_internal(TRUE);
     falseobject = newbool_internal(FALSE);
-    exception_type = new Class("exception");
-    class_type = new Class("class");
-    int_type = new Class("int");
-    func_type = new Class("func");
-    none_type = new Class("none");
-    str_type = new Class("str");
-    list_type = new Class("list");
-    builtinfunc_type = new Class("builtin_func");
+    exception_type = new Class("exception", NULL);
+    class_type = new Class("class", NULL);
+    int_type = new Class("int", NULL);
+    func_type = new Class("func", NULL);
+    none_type = new Class("none", NULL);
+    str_type = new Class("str", NULL);
+    list_type = new Class("list", NULL);
+    builtinfunc_type = new Class("builtin_func", NULL);
     BuiltinFunction *range = newbuiltinfunc_internal(range_func);
     globals["range"] = range;
     BuiltinFunction *iter_func = newbuiltinfunc_internal(list_iter);
     list_type->setfield("iter", iter_func);
-    listiterator_type = new Class("iterator");
+    listiterator_type = new Class("iterator", NULL);
     BuiltinFunction *next_func = newbuiltinfunc_internal(listiterator_next);
     listiterator_type->setfield("next", next_func);
     BuiltinFunction *print = newbuiltinfunc_internal(print_func);
     globals["print"] = print;
-    none_type = new Class("none");
+    none_type = new Class("none", NULL);
     none = new Object();
     globals["none"] = none;
     none->type = none_type;

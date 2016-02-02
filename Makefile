@@ -1,5 +1,5 @@
 LIBS=
-FLAGS=-std=c++11 -g -Wall -v
+FLAGS=-std=c++0x -g -Wall -v
 TYPES=int.cpp string.cpp object.cpp builtin_function.cpp class.cpp bool.cpp function.cpp list_iterator.cpp list.cpp
 SOURCES=$(TYPES:%.cpp=types/%.cpp)
 OBJECTS=$(SOURCES:.cpp=.o)
@@ -18,3 +18,4 @@ test: all
 clean:
 	rm -f vm.out
 	rm -f types/*.o
+	rm -Rf vm.out.dSYM

@@ -19,6 +19,12 @@ using namespace std;
 #include "types/list_iterator.h"
 #include "types/list.h"
 
+#define GETLOCAL(x) (gstack[bp+x])
+#define GETFUNC() (gstack.at(bp-1))
+#define LOCALSIZE() (gstack.size()-bp)
+#define PUSH(x) gstack.push_back(x)
+#define POP_TYPE(type, class_object) assert_type<type *>(POP(), class_object)
+#define TOP() gstack.back()
 
 #define TRUE 1
 #define FALSE 0
