@@ -1,10 +1,17 @@
 #include "vm.h"
 #include "assert.h"
 
+unsigned int ip;
+std::vector<Object *> gstack;
+unsigned int bp;
+std::vector<Object *> locals;
+std::unordered_map<string, Object *> globals;
+std::unordered_map<string, int> labels;
+Object *error;
+
 Bool *trueobject;
 Bool *falseobject;
 Object *none;
-Class *int_type;
 Class *func_type;
 Class *builtinfunc_type;
 Class *none_type;
@@ -14,6 +21,7 @@ Class *list_type;
 Class *listiterator_type;
 Class *exception_type;
 Class *class_type;
+Class *int_type;
 
 #define GETLOCAL(x) (gstack[bp+x])
 #define GETFUNC() (gstack.at(bp-1))
@@ -27,34 +35,6 @@ template<typename T> T assert_type(Object * o, Class *type)
 
 void call(std::vector<std::string>& codes, int param_count);
 
-void Object::setfield(string name, Object* object) {
-    this->fields.insert({name, object});
-}
-
-Object *Object::getfield(string name) {
-// TODO exceptions
-// TODO parent chain   
-    Object *field;
-    try {
-        field = this->fields.at(name);
-    } catch (const std::out_of_range& oor) {
-        assert(this->type);
-        try {
-            field = this->type->fields.at(name);
-        } catch (const std::out_of_range& oor) {
-            return NULL;
-        }
-    }
-    cout << "getfield type " << field->type << endl;
-    return field;
-}
-
-ListIterator::ListIterator(std::vector<Object *> *list) {
-    this->it = new std::vector<Object *>::iterator(list->begin());
-cout << "new iterator points to" << *(*this->it) << endl;
-    this->end = new std::vector<Object *>::iterator(list->end());
-}
-
 Bool *newbool_internal(int bval) {
     Bool *o = new Bool;
     o->type = bool_type;
@@ -66,9 +46,7 @@ Bool *newbool_internal(int bval) {
 void newerror_internal(string message) {
     Object *e = new Object();
     e->type = exception_type;
-    String *m = new String();
-    m->sval = message;
-    m->type = str_type;
+    String *m = new String(message);
     e->setfield("message", m);
     error = e;
 }
@@ -103,23 +81,13 @@ void newclass_internal() {
     gstack.push_back(c);
 }
 
-inline Object *newint_internal(int ival) {
-    Int *o = new Int();
-    o->type = int_type;
-    o->ival = ival;
-    cout << "newint: " << ival << endl;
-    return o;
-}
-
 void newint(int ival) {
-    Object *o = newint_internal(ival);
+    Object *o = new Int(ival);
     gstack.push_back(o);
 }
 
 void newstr(string sval) {
-    String *o = new String();
-    o->type = str_type;
-    o->sval = sval;
+    String *o = new String(sval);
     cout << "newstr: " << sval << endl;
     gstack.push_back(o);
 }
@@ -497,22 +465,12 @@ void read_codes(std::stringstream& fs, std::vector<std::string> &codes) {
     }
 }
 
-Class::Class(string type_name) {
-    this->type_name = type_name;
-    this->type = class_type;
-}
-
-List::List() {
-    this->type = list_type;
-    this->list = new std::vector<Object *>();
-}
-
 void range_func() {
     Int *max = assert_type<Int *>(gstack.back(), int_type);
     gstack.pop_back();
     List *list = new List();
     for (int i=0; i<max->ival; i++)
-        list->list->push_back(newint_internal(i));
+        list->list->push_back(new Int(i));
     gstack.push_back(list);
 }
 

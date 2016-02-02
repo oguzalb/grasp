@@ -162,7 +162,6 @@ def return_action(parser, tokens):
     parser.add_instruction("return")
     return tokens
 returnexpr.set_action(return_action)
-# return is first, expr can get return as identifier!!!
 exprstmt = Group(andexpr)
 
 
@@ -170,6 +169,7 @@ def exprstmt_action(parser, tokens):
     parser.add_instruction("pop")
     return tokens
 funcdef = Forward()
+# return is first, expr can get return as identifier!!!
 primitivestmt = (returnexpr | exprstmt) + Literal("\n")
 exprstmt.set_action(exprstmt_action)
 rightvalue = Group(andexpr)

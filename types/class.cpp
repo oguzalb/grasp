@@ -1,0 +1,8 @@
+#include "class.h"
+
+extern Class *class_type;
+
+Class::Class(string type_name) {
+    this->type_name = type_name;
+    this->type = class_type;
+}
