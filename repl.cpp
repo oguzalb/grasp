@@ -14,7 +14,7 @@ std::stringstream compile(string code) {
    char buf[1024];
    std::string  cur_string = "";
    while (fgets(buf, sizeof (buf), fpipe) != NULL) {
-       cur_string.push_back(buf);
+       cur_string += buf;
    }
    pclose(fpipe);
 
@@ -35,13 +35,14 @@ int main (int argc, char *argv[]) {
     std::vector<std::string> codes;
     string code;
     while (1){
-        code = "";
+        string line;
         cout << ">>";
+        code = "";
         while (!ends_with(code, "\n\n")) {
-            getline(cin, code);
-            if (ends_with(code, "\nquit"))
+            getline(cin, line);
+            if (line == "quit")
                 return 0;
-            code.push_back("\n");
+            code += line + "\n";
             cout << "..";
         }
         std::stringstream ss = compile(code);
