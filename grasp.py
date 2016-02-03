@@ -381,17 +381,20 @@ if __name__ == "__main__":
     import argparse
     argparser = argparse.ArgumentParser(description='Compile grasp code')
     argparser.add_argument(
-        'file', nargs=1, help='File to compile')
+        'file', nargs='?', help='File to compile')
     args = argparser.parse_args()
-    filename = args.file[0]
-    if not filename.endswith(".grasp"):
+    filename = args.file
+    if filename is None:
+        code = "".join(sys.stdin)
+    elif filename.endswith(".grasp"):
+        with open(filename, 'r') as sourcef:
+            code = sourcef.read()
+    else:
         printerr('Source file should end with .grasp\n')
         exit(1)
-    with open(filename, 'r') as sourcef:
-        code = sourcef.read()
-        parser = Parser()
-        main.parse_string(parser, code)
-        outputfilename = filename + 'o'
-        print parser
-        with open(outputfilename, 'w') as outputf:
-            outputf.write(parser.dumpcode())
+    parser = Parser()
+    main.parse_string(parser, code)
+    outputfilename = filename + 'o' if filename else "repl.graspo"
+    print parser
+    with open(outputfilename, 'w') as outputf:
+        outputf.write(parser.dumpcode())

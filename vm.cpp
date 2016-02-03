@@ -422,14 +422,14 @@ void interpret_block(std::vector<std::string> &codes) {
 void read_codes(std::stringstream& fs, std::vector<std::string> &codes) {
     std::string line;
     int index;
-    int ip = 0;
+    int temp_ip = ip;
     while (std::getline(fs, line)) {
         if ((index = line.find(":"))) {
-            labels.insert({line.substr(0, index), ip});
+            labels.insert({line.substr(0, index), temp_ip});
             line = line.substr(index+1);
         }
         codes.push_back(line);
-        ip++;
+        temp_ip++;
     }
 }
 
@@ -517,28 +517,4 @@ void init_builtins() {
 
 bool ends_with(const string& s, const string& ending) {
  return (s.size() >= ending.size()) && std::equal(ending.rbegin(), ending.rend(), s.rbegin());
-}
-
-int main (int argc, char *argv[]) {
-    if (argc != 2) {
-        cerr << "Needs file as an argument" << endl;
-        return 1;
-    }
-    string sourcefilename = argv[1];
-    if (!ends_with(sourcefilename, ".graspo")) {
-        cerr << "Needs a file with extension .graspo as an argument" << endl;
-        return 1;
-    }
-    init_builtins();
-    std::fstream fs;
-    fs.open(sourcefilename, std::fstream::in);
-    std::stringstream ss;
-    std::vector<std::string> codes;
-    copy(istreambuf_iterator<char>(fs),
-     istreambuf_iterator<char>(),
-     ostreambuf_iterator<char>(ss));
-    read_codes(ss, codes);
-    ip = 0;
-    interpret_block(codes);
-    return 0;
 }

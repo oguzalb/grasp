@@ -28,4 +28,9 @@ using namespace std;
 
 #define TRUE 1
 #define FALSE 0
+
+void init_builtins();
+void interpret_block(std::vector<std::string>& codes);
+void read_codes(std::stringstream& fs, std::vector<std::string> &codes);
+bool ends_with(const string& s, const string& ending);
 #endif

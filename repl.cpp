@@ -1,0 +1,52 @@
+#include "vm.h"
+#include "string.h"
+
+std::stringstream compile(string code) {
+   FILE *fpipe;
+   char *command="python grasp.py";
+
+   if (!(fpipe = (FILE*)popen(command,"w")) ) {
+      perror("Problems with pipe");
+      exit(1);
+   }
+   fwrite(code.c_str(), 1, code.size(), fpipe);
+   fflush(fpipe);
+   char buf[1024];
+   std::string  cur_string = "";
+   while (fgets(buf, sizeof (buf), fpipe) != NULL) {
+       cur_string.push_back(buf);
+   }
+   pclose(fpipe);
+
+   std::fstream fs;
+   std::stringstream ss;
+// TODO handling stuff
+   fs.open("repl.graspo", std::fstream::in);
+   copy(istreambuf_iterator<char>(fs),
+     istreambuf_iterator<char>(),
+     ostreambuf_iterator<char>(ss));
+   fs.close();
+// TODO might be unsuccessful
+   return ss;
+}
+
+int main (int argc, char *argv[]) {
+    init_builtins();
+    std::vector<std::string> codes;
+    string code;
+    while (1){
+        code = "";
+        cout << ">>";
+        while (!ends_with(code, "\n\n")) {
+            getline(cin, code);
+            if (ends_with(code, "\nquit"))
+                return 0;
+            code.push_back("\n");
+            cout << "..";
+        }
+        std::stringstream ss = compile(code);
+        read_codes(ss, codes);
+        interpret_block(codes);
+    };
+    return 0;
+}

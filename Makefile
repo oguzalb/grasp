@@ -2,19 +2,22 @@ LIBS=
 FLAGS=-std=c++0x -g -Wall
 TYPES=int.cpp string.cpp object.cpp builtin_function.cpp class.cpp bool.cpp function.cpp list_iterator.cpp list.cpp
 SOURCES=$(TYPES:%.cpp=types/%.cpp)
-OBJECTS=$(SOURCES:.cpp=.o)
+OBJECTS=$(SOURCES:.cpp=.o) vm.o
 .cpp.o:
 	g++ -c $< ${LIBS} ${FLAGS} -o $@
 
 all: ${OBJECTS}
-	g++ vm.cpp ${OBJECTS} -o vm.out ${LIBS} ${FLAGS}
+	g++ stackmachine.cpp ${OBJECTS} -o stackmachine.out ${LIBS} ${FLAGS}
 
 test: all
 	flake8 parser/parse.py grasp.py
 	python -m unittest discover tests
 	./grasp example.grasp
-	./vm.out example.graspo
+	./stackmachine.out example.graspo
+repl: all
+	g++ repl.cpp ${OBJECTS} -o repl.out ${LIBS} ${FLAGS}
+	
 clean:
-	rm -f vm.out example.graspo
-	rm -f types/*.o
-	rm -Rf vm.out.dSYM
+	rm -f stackmachine.out repl.out example.graspo
+	rm -f types/*.o *.o
+	rm -Rf *.out.dSYM
