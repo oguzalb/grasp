@@ -3,5 +3,8 @@ class Person
         self.name = name
     hello(self) ->
         print(self.name)
+    __getitem__(self, item) ->
+        return item
 person = Person("oguz")
 person.hello()
+print(person[0] + 1)

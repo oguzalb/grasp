@@ -1,4 +1,8 @@
 import re
+# TODO Optional doesn't increase
+# the cursor but shouldn't keep Atoms like
+# Postfix to continue working, fixed
+# but should be reconsidered
 
 
 class ParseError(Exception):
@@ -229,7 +233,7 @@ class Infix(Token):
         self.operand = operand
 
     def parse(self, text, i):
-        results = Atom()
+        results = Atom(process=self.process)
         result, i = self.operand.parse(text, i)
         results.append(result)
         while True:
@@ -241,7 +245,7 @@ class Infix(Token):
                 return results[0], i
             result, i = self.operand.parse(text, i)
             results.append(result)
-            atom = Atom()
+            atom = Atom(process=self.process)
             atom.append(results)
             results = atom
 
@@ -266,7 +270,10 @@ class Postfix(Token):
             atom.append(results)
             results = atom
             try:
-                result, i = self.operator.parse(text, i)
+                result, new_i = self.operator.parse(text, i)
+                if i == new_i:
+                    return results[0], i
+                i = new_i
                 results.append(result)
             except ParseError:
                 # parse error may be no alternative or sth,

@@ -4,16 +4,16 @@ from grasp import main
 
 
 class GraspTest(unittest.TestCase):
-    def _test_code(self, code, output):
+    def _test_code(self, code, output, i):
         parser = Parser()
         main.parse_string(parser, code)
-        self.assertEquals(parser.dumpcode(), output)
+        self.assertEquals(parser.dumpcode(), output, "test %s: \"%s\" != \"%s\"" % (i, parser.dumpcode(), output))
 
     def test_varname(self):
-        self._test_code('var\n', 'pushglobal var\npop\n')
+        self._test_code('var\n', 'pushglobal var\npop\n', 0)
 
     def test_trailer(self):
-        self._test_code("var.field1\n", "pushglobal var\nstr field1\ngetfield\npop\n")
+        self._test_code("var.field1\n", "pushglobal var\nstr field1\ngetfield\npop\n", 0)
 
     def test_expression(self):
         # easier to see
@@ -21,52 +21,91 @@ class GraspTest(unittest.TestCase):
             (
 "a/b\n", 
 """pushglobal a
+str __div__
+getmethod
+swp
 pushglobal b
-div
+call 2
 pop
 """),
             (
 "a-b-c\n",
 """pushglobal a
+str __sub__
+getmethod
+swp
 pushglobal b
-sub
+call 2
+str __sub__
+getmethod
+swp
 pushglobal c
-sub
+call 2
 pop
 """),
             (
 "a-b+c*d/e\n",
 """pushglobal a
+str __sub__
+getmethod
+swp
 pushglobal b
-sub
+call 2
+str __add__
+getmethod
+swp
 pushglobal c
+str __mul__
+getmethod
+swp
 pushglobal d
+str __div__
+getmethod
+swp
 pushglobal e
-div
-mul
-add
+call 2
+call 2
+call 2
 pop
 """),
             (
 "a-b+c*d/e or f and g\n",
 """pushglobal a
+str __sub__
+getmethod
+swp
 pushglobal b
-sub
+call 2
+str __add__
+getmethod
+swp
 pushglobal c
+str __mul__
+getmethod
+swp
 pushglobal d
+str __div__
+getmethod
+swp
 pushglobal e
-div
-mul
-add
+call 2
+call 2
+call 2
+str __or__
+getmethod
+swp
 pushglobal f
-or
+call 2
+str __and__
+getmethod
+swp
 pushglobal g
-and
+call 2
 pop
 """),
         )
-        for code, output in tests:
-            self._test_code(code, output)
+        for i, (code, output) in enumerate(tests):
+            self._test_code(code, output, i)
 
     def test_funccall(self):
         tests = (
@@ -90,19 +129,22 @@ call 2
 pop
 """),
         )
-        for code, output in tests:
-            self._test_code(code, output)
+        for i, (code, output) in enumerate(tests):
+            self._test_code(code, output, i)
     def test_return(self):
         tests = (
             ("return a+b\n",
 """pushglobal a
+str __add__
+getmethod
+swp
 pushglobal b
-add
+call 2
 return
 """),
         )
-        for code, output in tests:
-            self._test_code(code, output)
+        for i, (code, output) in enumerate(tests):
+            self._test_code(code, output, i)
         # should be more
 
     def test_funcdef(self):
@@ -118,8 +160,11 @@ pushglobal c
 call 1
 pop
 pushlocal 0
+str __add__
+getmethod
+swp
 pushlocal 1
-add
+call 2
 return
 pushglobal none
 return
@@ -164,8 +209,11 @@ func1.func(1,2)
 """, 
 """jmp l1
 l2:pushlocal 0
+str __add__
+getmethod
+swp
 pushlocal 1
-add
+call 2
 return
 pushglobal none
 return
@@ -179,9 +227,9 @@ setfield
 pushglobal func1
 str func
 getmethod
+swp
 int 1
 int 2
-swp
 call 3
 pop
 """
@@ -195,20 +243,29 @@ total(5)
 """, 
 """jmp l1
 l2:pushlocal 0
+str __equals__
+getmethod
+swp
 int 1
-equals
+call 2
 jnt l4
 int 1
 return
 jmp l3
 l4:nop
 l3:pushlocal 0
+str __add__
+getmethod
+swp
 pushglobal total
 pushlocal 0
+str __sub__
+getmethod
+swp
 int 1
-sub
+call 2
 call 1
-add
+call 2
 return
 pushglobal none
 return
@@ -259,8 +316,11 @@ call 1
 l3:loop l4
 setglobal i
 pushglobal tot
+str __add__
+getmethod
+swp
 pushglobal i
-add
+call 2
 setglobal tot
 jmp l3
 l4:pop
@@ -278,8 +338,8 @@ call 1
 pop
 """     )
         )
-        for code, output in tests:
-            self._test_code(code, output)
+        for i, (code, output) in enumerate(tests):
+            self._test_code(code, output, i)
     def test_class(self):
         self._test_code(
 """
@@ -330,4 +390,4 @@ getmethod
 swp
 call 1
 pop
-""")
+""", 0)

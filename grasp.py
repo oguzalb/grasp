@@ -93,11 +93,22 @@ funccall = Group(callparams)
 methodcall = Group(callparams)
 
 
-def infix_action(name):
-    def expr_action(parser, tokens):
-        parser.add_instruction(name)
-        return tokens
-    return expr_action
+def infix_process(name):
+    def expr_process(children, parser):
+        if len(children) < 3:
+            return [c.process(c, parser) for c in children]
+        results = [
+            children[0].process(children[0], parser)
+            if hasattr(children[0], "process") else None]
+        parser.add_instruction("str __%s__" % name)
+        parser.add_instruction("getmethod")
+        parser.add_instruction("swp")
+        results.append(
+            children[2].process(children[2], parser)
+            if hasattr(children[2], "process") else None)
+        parser.add_instruction("call 2")
+        return results
+    return expr_process
 
 
 def funccall_action(parser, tokens):
@@ -109,7 +120,6 @@ funccall.set_action(funccall_action)
 
 
 def methodcall_action(parser, tokens):
-    parser.add_instruction("swp")
     param_count = tokens[0][1]
     parser.add_instruction("call %s" % (
         len(param_count) + 1 if param_count else 1))
@@ -129,33 +139,52 @@ last_accessor = access_op + fieldname
 last_accessor_call = access_op + fieldname + methodcall
 trailerwithcall = last_accessor_call
 trailerwithoutcall = Group(last_accessor)
+
+getitem = (
+    Literal('[') + andexpr_container + Literal(']')
+)
+
+
+def getitem_process(children, parser):
+    parser.add_instruction("str __getitem__")
+    parser.add_instruction("getmethod")
+    parser.add_instruction("swp")
+    results = [child.process(child, parser) for child in children[0]]
+    parser.add_instruction("call 2")
+    return results
+
+getitem.process = getitem_process
+# TODO should be fixed using postfix or sth
 trailer = atom + Optional(accessor) + Optional(
-    trailerwithcall | trailerwithoutcall | funccall)
+    trailerwithcall | trailerwithoutcall | funccall | getitem
+)
 
 
 def trailerwithcall_process(children, parser):
     parser.add_instruction("str " + children[0][1][0])
     parser.add_instruction("getmethod")
+    parser.add_instruction("swp")
     return [child.process(child, parser) for child in children[0]]
 
 trailerwithcall.process = trailerwithcall_process
 trailerwithoutcall.set_action(accessor_action)
 divexpr = Infix(trailer, Literal('/'))
-divexpr.set_action(infix_action("div"))
+divexpr.process = infix_process("div")
 mulexpr = Infix(divexpr, Literal('*'))
-mulexpr.set_action(infix_action("mul"))
+mulexpr.process = infix_process("mul")
 subexpr = Infix(mulexpr, Literal('-'))
-subexpr.set_action(infix_action("sub"))
+subexpr.process = infix_process("sub")
 addexpr = Infix(subexpr, Literal('+'))
-addexpr.set_action(infix_action("add"))
+addexpr.process = infix_process("add")
 equalsexpr = Infix(addexpr, Literal("=="))
-equalsexpr.set_action(infix_action("equals"))
+equalsexpr.process = infix_process("equals")
 orexpr = Infix(equalsexpr, Literal('or'))
-orexpr.set_action(infix_action("or"))
+orexpr.process = infix_process("or")
 andexpr = Infix(orexpr, Literal('and'))
 andexpr_container << andexpr
-andexpr.set_action(infix_action('and'))
+andexpr.process = infix_process('and')
 
+# TODO return is not expr!!
 returnexpr = Literal('return') + andexpr
 
 

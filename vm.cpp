@@ -126,12 +126,14 @@ cout << "object type" << o2->type << endl;
 
 void getmethod() {
     String *o1 = POP_TYPE(String, str_type);
-cout << "object type" << o1->type << endl;
+cout << "object type:" << o1->type << endl;
     Object *o2 = TOP();
-cout << "object type" << o2->type << endl;
+cout << "object type:" << o2->type << endl;
     Object *field = o2->getfield(o1->sval);
-    if (field == NULL)
+    cout << "type: " << o2->type->type_name << endl;
+    if (field == NULL) {
         throw exception();
+    }
     assert(field->type == builtinfunc_type || field->type == func_type);
     PUSH(field);
     cout << "field pushed type " << field->type << endl;
@@ -360,18 +362,6 @@ void interpret_block(std::vector<std::string> &codes) {
             ss >> name;
             cout << "setglobal " << name << endl;
             setglobal(name);
-        } else if (command == "add") {
-            cout << "add" << endl;
-            add();
-        } else if (command == "sub") {
-            cout << "sub" << endl;
-            sub();
-        } else if (command == "mul") {
-            cout << "mul" << endl;
-            mul();
-        } else if (command == "div") {
-            cout << "div" << endl;
-            div();
         } else if (command == "swp") {
             cout << "swp" << endl;
             swp();
@@ -489,24 +479,23 @@ BuiltinFunction *newbuiltinfunc_internal (void(*function)()) {
 void init_builtins() {
     error = NULL;
     // TODO new instance functions should be implemented
+    builtinfunc_type = new Class("builtin_func", NULL);
     bool_type = new Class("bool", NULL);
     trueobject = newbool_internal(TRUE);
     falseobject = newbool_internal(FALSE);
     exception_type = new Class("exception", NULL);
     class_type = new Class("class", NULL);
     int_type = new Class("int", NULL);
+    int_type->setmethod("__add__", add);
     func_type = new Class("func", NULL);
     none_type = new Class("none", NULL);
     str_type = new Class("str", NULL);
     list_type = new Class("list", NULL);
-    builtinfunc_type = new Class("builtin_func", NULL);
     BuiltinFunction *range = newbuiltinfunc_internal(range_func);
     globals["range"] = range;
-    BuiltinFunction *iter_func = newbuiltinfunc_internal(list_iter);
-    list_type->setfield("iter", iter_func);
+    list_type->setmethod("iter", list_iter);
     listiterator_type = new Class("iterator", NULL);
-    BuiltinFunction *next_func = newbuiltinfunc_internal(listiterator_next);
-    listiterator_type->setfield("next", next_func);
+    listiterator_type->setmethod("next", listiterator_next);
     BuiltinFunction *print = newbuiltinfunc_internal(print_func);
     globals["print"] = print;
     none_type = new Class("none", NULL);

@@ -11,6 +11,7 @@ class Object {
     public:
     std::unordered_map<string, Object *> fields;
     void setfield(string name, Object* object);
+    void setmethod(string name, void(*function)());
     Object *getfield(string name);
     Class *type;
 };
