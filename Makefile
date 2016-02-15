@@ -19,5 +19,5 @@ repl: all
 	
 clean:
 	rm -f stackmachine.out repl.out example.graspo
-	rm -f types/*.o *.o
+	rm -f types/*.o *.o *.graspo
 	rm -Rf *.out.dSYM
