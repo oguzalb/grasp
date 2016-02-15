@@ -8,4 +8,6 @@ class Int : public Object {
     Int(int ival);
 };
 
+void init_int();
+
 #endif

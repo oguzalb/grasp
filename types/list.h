@@ -9,4 +9,6 @@ class List : public Object {
     std::vector<Object *> *list;
 };
 
+void init_list();
+
 #endif

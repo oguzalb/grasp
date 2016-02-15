@@ -22,7 +22,6 @@ using namespace std;
 #define GETLOCAL(x) (gstack[bp+x])
 #define GETFUNC() (gstack.at(bp-1))
 #define LOCALSIZE() (gstack.size()-bp)
-#define PUSH(x) gstack.push_back(x)
 #define POP_TYPE(type, class_object) assert_type<type *>(POP(), class_object)
 #define TOP() gstack.back()
 
@@ -34,4 +33,7 @@ void interpret_block(std::vector<std::string>& codes);
 void read_codes(std::stringstream& fs, std::vector<std::string> &codes);
 bool ends_with(const string& s, const string& ending);
 BuiltinFunction *newbuiltinfunc_internal(void(*function)());
+inline Object* POP();
+inline void PUSH(Object *);
+template<typename T> T assert_type(Object * o, Class *type);
 #endif

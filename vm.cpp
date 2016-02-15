@@ -36,6 +36,10 @@ inline Object *POP() {
     return o;
 }
 
+inline void PUSH(Object *x) {
+    gstack.push_back(x);
+}
+
 void call(std::vector<std::string>& codes, int param_count);
 
 Bool *newbool_internal(int bval) {
@@ -81,11 +85,6 @@ cout << "__init__" << endl;
 void newclass_internal() {
     Class *c = new Class("custom", newinstance);
     PUSH(c);
-}
-
-void newint(int ival) {
-    Object *o = new Int(ival);
-    PUSH(o);
 }
 
 void newstr(string sval) {
@@ -226,49 +225,11 @@ void loop(std::vector<std::string>& codes, int location) {
     }
 }
 
-void add() {
-    Int *o1 = POP_TYPE(Int, int_type);
-    Int *o2 = POP_TYPE(Int, int_type);
-    // TODO exc
-    newint(o1->ival + o2->ival);
-}
- 
-void sub() {
-    Int *o1 = POP_TYPE(Int, int_type);
-    Int *o2 = POP_TYPE(Int, int_type);
-    // TODO exc
-    newint(o2->ival - o1->ival);
-}
- 
-void mul() {
-    Int *o1 = POP_TYPE(Int, int_type);
-    Int *o2 = POP_TYPE(Int, int_type);
-    // TODO exc
-    newint(o1->ival * o2->ival);
-}
- 
-void div() {
-    Int *o1 = POP_TYPE(Int, int_type);
-    Int *o2 = POP_TYPE(Int, int_type);
-    // TODO exc
-    newint(o2->ival / o1->ival);
-}
-
 void swp() {
     Object *o1 = POP();
     Object *o2 = POP();
     PUSH(o1);
     PUSH(o2);
-}
-
-void equals() {
-    Int *o1 = POP_TYPE(Int, int_type);
-    Int *o2 = POP_TYPE(Int, int_type);
-    if (o1->ival == o2->ival) {
-        PUSH(trueobject);
-    } else {
-        PUSH(falseobject);
-    }
 }
 
 std::vector<std::string> *read_func_code(std::vector<std::string> &codes) {
@@ -314,7 +275,7 @@ void interpret_block(std::vector<std::string> &codes) {
             int ival;
             ss >> ival;
 // TODO check
-            newint(ival);
+            PUSH(new Int(ival));
         } else if (command == "str") {
             string sval = ss.str().substr(4);
 // TODO check
@@ -367,9 +328,6 @@ void interpret_block(std::vector<std::string> &codes) {
             swp();
         } else if (command == "nop") {
             cout << "nop" << endl;
-        } else if (command == "equals") {
-            cout << "equals" << endl;
-            equals();
         } else if (command == "getfield") {
             cout << "getfield" << endl;
             getfield();
@@ -443,16 +401,6 @@ cout << "print" << endl;
     PUSH(none);
 }
 
-void list_iter() {
-    Object *self_obj = POP();
-// TODO remove assert
-    assert(self_obj->type == list_type);
-    List *self = static_cast<List *>(self_obj);
-    ListIterator *it_obj = new ListIterator(self->list);
-    it_obj->type = listiterator_type;
-    PUSH(it_obj);
-}
-
 void listiterator_next() {
     Object *self_obj = POP();
 assert(self_obj->type == listiterator_type);
@@ -485,15 +433,13 @@ void init_builtins() {
     falseobject = newbool_internal(FALSE);
     exception_type = new Class("exception", NULL);
     class_type = new Class("class", NULL);
-    int_type = new Class("int", NULL);
-    int_type->setmethod("__add__", add);
+    init_int();
     func_type = new Class("func", NULL);
     none_type = new Class("none", NULL);
     str_type = new Class("str", NULL);
-    list_type = new Class("list", NULL);
+    init_list();
     BuiltinFunction *range = newbuiltinfunc_internal(range_func);
     globals["range"] = range;
-    list_type->setmethod("iter", list_iter);
     listiterator_type = new Class("iterator", NULL);
     listiterator_type->setmethod("next", listiterator_next);
     BuiltinFunction *print = newbuiltinfunc_internal(print_func);
