@@ -48,6 +48,10 @@ int main (int argc, char *argv[]) {
         std::stringstream ss = compile(code);
         read_codes(ss, codes);
         interpret_block(codes);
+        if (gstack.size() > 0) {
+            Exception *exc = POP_TYPE(Exception *, exception_type);
+            assert(FALSE);
+        }
     };
     return 0;
 }

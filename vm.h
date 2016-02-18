@@ -36,4 +36,6 @@ BuiltinFunction *newbuiltinfunc_internal(void(*function)());
 inline Object* POP();
 inline void PUSH(Object *);
 template<typename T> T assert_type(Object * o, Class *type);
+void newerror_internal(string message);
+void print_stack_trace();
 #endif

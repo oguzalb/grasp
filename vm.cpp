@@ -8,7 +8,6 @@ unsigned int bp;
 std::vector<Object *> locals;
 std::unordered_map<string, Object *> globals;
 std::unordered_map<string, int> labels;
-Object *error;
 
 Bool *trueobject;
 Bool *falseobject;
@@ -55,7 +54,7 @@ void newerror_internal(string message) {
     e->type = exception_type;
     String *m = new String(message);
     e->setfield("message", m);
-    error = e;
+    PUSH(e);
 }
 
 void newinstance() {
@@ -116,9 +115,7 @@ void getfield() {
 cout << "object type" << o1->type << endl;
     Object *o2 = POP();
 cout << "object type" << o2->type << endl;
-    Object *field =o2->getfield(o1->sval);
-    if (field == NULL)
-        throw exception();
+    Object *field = o2->getfield(o1->sval);
     PUSH(field);
     cout << "field pushed" << endl;
 }
@@ -213,14 +210,14 @@ void loop(std::vector<std::string>& codes, int location) {
     getmethod();
     swp();
     call(codes, 1);
+    Object *result = TOP();
 // stop iteration should have its type
-    if (error == NULL) {
+    if (result->type != exception_type) {
         // continue, might get filled
     } else {
-        error = NULL;
         ip = location;
         // pop the iterator and dummy none, not needed anymore
-        assert(POP() == none);
+        assert(POP()->type == exception_type);
         assert(POP() == it);
     }
 }
@@ -287,14 +284,10 @@ void interpret_block(std::vector<std::string> &codes) {
             ss >> count;
             cout << "call " << count <<endl;
             call(codes, count);
-            if (error != NULL)
-                throw exception();
 // TODO check
         } else if (command == "class") {
             cout << "class " << endl;
             newclass_internal();
-            if (error != NULL)
-                throw exception();
 // TODO check
  
         } else if (command == "return") {
@@ -363,6 +356,12 @@ void interpret_block(std::vector<std::string> &codes) {
             cerr << "command not defined" << command << endl;
             throw std::exception();
         }
+        if (gstack.size() > 0) {
+            Object *exc = TOP();
+            if (exc->type == exception_type) {
+                break;
+            }
+        }
         ip++;
     }
 }
@@ -389,16 +388,44 @@ void range_func() {
     PUSH(list);
 }
 
+void exc_str() {
+    Object *exc = POP_TYPE(Object, exception_type);
+    Object *str = exc->getfield("message");
+    PUSH(str);
+}
+
 void print_func() {
 cout << "print" << endl;
-    Object *o = POP();
+    Object * o= POP();
     if (o->type == str_type)
         cout << assert_type<String *>(o, str_type)->sval << endl;
     else if (o->type == int_type)
         cout << assert_type<Int *>(o, int_type)->ival << endl;
-    else
-        assert(FALSE);
+    else {
+        Object *str_func = o->getfield("__str__");
+        PUSH(str_func);
+        PUSH(o);
+        assert(str_func->type == func_type || str_func->type == builtinfunc_type);
+        Function *func = static_cast<Function *>(str_func);
+        call(func->codes, 1);
+        // TODO will be refactored
+
+        String * str = POP_TYPE(String, str_type);
+        cout << str->sval << endl;
+    }
     PUSH(none);
+}
+
+void print_stack_trace() {
+    if (gstack.size() > 0) {
+        Object *exc = POP();
+        assert(exc->type == exception_type);
+        PUSH(exc);
+        print_func();
+        POP();
+    } else {
+        cout << "no stack" << endl;
+    }
 }
 
 void listiterator_next() {
@@ -413,7 +440,6 @@ assert(it_obj->type == listiterator_type);
         (*it_obj->it)++;
         PUSH(element);
     } else {
-        PUSH(none);
         // TODO when exception types implemented
         newerror_internal("STOP ITERATION!!!");
     }
@@ -425,13 +451,13 @@ BuiltinFunction *newbuiltinfunc_internal (void(*function)()) {
 }
 
 void init_builtins() {
-    error = NULL;
     // TODO new instance functions should be implemented
     builtinfunc_type = new Class("builtin_func", NULL);
     bool_type = new Class("bool", NULL);
     trueobject = newbool_internal(TRUE);
     falseobject = newbool_internal(FALSE);
     exception_type = new Class("exception", NULL);
+    exception_type->setmethod("__str__", exc_str);
     class_type = new Class("class", NULL);
     init_int();
     func_type = new Class("func", NULL);

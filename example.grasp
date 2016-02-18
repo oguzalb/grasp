@@ -8,3 +8,7 @@ class Person
 person = Person("oguz")
 person.hello()
 print(person[0] + 1)
+for i in range(10)
+    print(i)
+
+i.nonexistent_field

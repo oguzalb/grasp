@@ -21,5 +21,7 @@ int main (int argc, char *argv[]) {
      ostreambuf_iterator<char>(ss));
     read_codes(ss, codes);
     interpret_block(codes);
+    print_stack_trace();
+
     return 0;
 }

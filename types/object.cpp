@@ -23,10 +23,13 @@ Object *Object::getfield(string name) {
         assert(this->type);
         try {
             field = this->type->fields.at(name);
+            cout << "getfield type " << field->type << endl;
         } catch (const std::out_of_range& oor) {
-            return NULL;
+            cout << "no field, exception" << name << endl;
+            newerror_internal("field not found");
+            // TODO ok this is not the way it should work
+            field = POP();
         }
     }
-    cout << "getfield type " << field->type << endl;
     return field;
 }
