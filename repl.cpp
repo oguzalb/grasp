@@ -53,7 +53,6 @@ int main (int argc, char *argv[]) {
         interpret_block(codes);
         if (gstack.size() > 0) {
             Object *exc = POP_TYPE(Object, exception_type);
-            assert(FALSE);
         }
     };
     return 0;

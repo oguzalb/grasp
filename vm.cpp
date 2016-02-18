@@ -76,8 +76,8 @@ cout << "newinstance" << endl;
         call(f->codes, 1 + localsize);
         POP();
         POP();
+    cout << "__init__" << endl;
     }
-cout << "__init__" << endl;
     PUSH(o);
 }
 
@@ -116,6 +116,10 @@ cout << "object type" << o1->type << endl;
     Object *o2 = POP();
 cout << "object type" << o2->type << endl;
     Object *field = o2->getfield(o1->sval);
+    if (field == NULL) {
+        newerror_internal("Field not found");
+        return;
+    }
     PUSH(field);
     cout << "field pushed" << endl;
 }
@@ -128,7 +132,8 @@ cout << "object type:" << o2->type << endl;
     Object *field = o2->getfield(o1->sval);
     cout << "type: " << o2->type->type_name << endl;
     if (field == NULL) {
-        throw exception();
+        newerror_internal("Method not found");
+        return;
     }
     assert(field->type == builtinfunc_type || field->type == func_type);
     PUSH(field);
@@ -394,6 +399,10 @@ void range_func() {
 void exc_str() {
     Object *exc = POP_TYPE(Object, exception_type);
     Object *str = exc->getfield("message");
+    if (str == NULL) {
+        newerror_internal("Exception should have message field");
+        return;
+    }
     PUSH(str);
 }
 
@@ -406,6 +415,10 @@ cout << "print" << endl;
         cout << assert_type<Int *>(o, int_type)->ival << endl;
     else {
         Object *str_func = o->getfield("__str__");
+        if (str_func == NULL) {
+            newerror_internal("field not found");
+            return;
+        }
         PUSH(str_func);
         PUSH(o);
         assert(str_func->type == func_type || str_func->type == builtinfunc_type);
