@@ -1,5 +1,7 @@
 #include "vm.h"
 #include "string.h"
+extern std::vector<Object *> gstack;
+extern Class *exception_type;
 
 std::stringstream compile(string code) {
    FILE *fpipe;
@@ -47,9 +49,10 @@ int main (int argc, char *argv[]) {
         }
         std::stringstream ss = compile(code);
         read_codes(ss, codes);
+        dump_codes(codes);
         interpret_block(codes);
         if (gstack.size() > 0) {
-            Exception *exc = POP_TYPE(Exception *, exception_type);
+            Object *exc = POP_TYPE(Object, exception_type);
             assert(FALSE);
         }
     };

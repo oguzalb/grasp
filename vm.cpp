@@ -370,8 +370,11 @@ void read_codes(std::stringstream& fs, std::vector<std::string> &codes) {
     std::string line;
     int index;
     int temp_ip = ip;
+    // resets the labels
+    labels = std::unordered_map<string, int>();
     while (std::getline(fs, line)) {
-        if ((index = line.find(":"))) {
+        if ((index = line.find(":")) != string::npos) {
+cout << "label:" << line.substr(0, index) << " index:" << temp_ip << endl;
             labels.insert({line.substr(0, index), temp_ip});
             line = line.substr(index+1);
         }
@@ -425,6 +428,19 @@ void print_stack_trace() {
         POP();
     } else {
         cout << "no stack" << endl;
+    }
+}
+
+void dump_codes(std::vector<std::string>& codes) {
+    cout << "Dumping codes" << endl;
+    int i = 0;
+    for (auto &line : codes) {
+        cout << i << " " << line << endl;
+        i++;
+    }
+    cout << "Dumping labels" << endl;
+    for (auto &label : labels) {
+        cout << label.first << ":" << label.second << endl;
     }
 }
 
