@@ -7,8 +7,10 @@ class Function : public Object {
     public:
     int codep;
     std::vector<std::string> codes;
-    Function(std::vector<std::string> &codes, int startp);
+    string name;
+    Function(std::vector<std::string> &codes, int startp, string name);
 };
 
+void init_function();
 
 #endif

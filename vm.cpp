@@ -23,7 +23,7 @@ Class *exception_type;
 Class *class_type;
 Class *int_type;
 
-template<typename T> T assert_type(Object * o, Class *type)
+template<typename T> T assert_type(Object *o, Class *type)
 {
     assert(o->type == type);
     return static_cast<T>(o);
@@ -40,14 +40,6 @@ inline void PUSH(Object *x) {
 }
 
 void call(std::vector<std::string>& codes, int param_count);
-
-Bool *newbool_internal(int bval) {
-    Bool *o = new Bool;
-    o->type = bool_type;
-    o->bval = bval;
-    cout << "newbool: " << bval << endl;
-    return o;
-}
 
 void newerror_internal(string message) {
     Object *e = new Object();
@@ -96,8 +88,8 @@ void newnone() {
     PUSH(none);
 }
 
-void newfunc(std::vector<std::string> &codes, int startp) {
-    Function *o = new Function(codes, startp);
+void newfunc(std::vector<std::string> &codes, int startp, string name) {
+    Function *o = new Function(codes, startp, name);
     PUSH(o);
 }
 
@@ -258,9 +250,10 @@ void interpret_block(std::vector<std::string> &codes) {
             if (val->type == int_type)
                 cout << "popped " << assert_type<Int *>(val, int_type)->ival << endl;
             else if (val->type == none_type)
-                cout << "popped none" << endl;
+                // Added just to pass the compilation error about the template ( :
+                cout << "popped none" << assert_type<Object *>(val, none_type) << endl;
             else if (val->type == func_type)
-                cout << "popped func" << endl;
+                cout << "popped func" << assert_type<Function *>(val, func_type)->name<< endl;
         } else if (command == "function") {
             string name;
 // TODO check
@@ -271,7 +264,7 @@ void interpret_block(std::vector<std::string> &codes) {
             startp = labels.at(startlabel);
             cout << "function code read " << startp << endl;
 // TODO
-            newfunc(codes, startp);
+            newfunc(codes, startp, name);
             cout << "next: " << codes[ip] << endl;
         } else if (command == "int") {
             int ival;
@@ -396,16 +389,6 @@ void range_func() {
     PUSH(list);
 }
 
-void exc_str() {
-    Object *exc = POP_TYPE(Object, exception_type);
-    Object *str = exc->getfield("message");
-    if (str == NULL) {
-        newerror_internal("Exception should have message field");
-        return;
-    }
-    PUSH(str);
-}
-
 void print_func() {
 cout << "print" << endl;
     Object * o= POP();
@@ -457,52 +440,26 @@ void dump_codes(std::vector<std::string>& codes) {
     }
 }
 
-void listiterator_next() {
-    Object *self_obj = POP();
-assert(self_obj->type == listiterator_type);
-// TODO remove assert
-    ListIterator *it_obj = static_cast<ListIterator *>(self_obj);
-assert(it_obj->type == listiterator_type);
-    Object *element;
-    if (*it_obj->it != *it_obj->end) {
-        element = static_cast<Object *>(**it_obj->it);
-        (*it_obj->it)++;
-        PUSH(element);
-    } else {
-        // TODO when exception types implemented
-        newerror_internal("STOP ITERATION!!!");
-    }
-}
-
-BuiltinFunction *newbuiltinfunc_internal (void(*function)()) {
-    BuiltinFunction *func = new BuiltinFunction(function);
-    return func;
-}
 
 void init_builtins() {
+    init_builtin_func();
     // TODO new instance functions should be implemented
-    builtinfunc_type = new Class("builtin_func", NULL);
-    bool_type = new Class("bool", NULL);
-    trueobject = newbool_internal(TRUE);
-    falseobject = newbool_internal(FALSE);
-    exception_type = new Class("exception", NULL);
-    exception_type->setmethod("__str__", exc_str);
-    class_type = new Class("class", NULL);
+    init_bool();
+    class_type = new Class("Class", NULL);
+    init_exception();
     init_int();
-    func_type = new Class("func", NULL);
-    none_type = new Class("none", NULL);
-    str_type = new Class("str", NULL);
+    init_function();
+    init_string();
     init_list();
-    BuiltinFunction *range = newbuiltinfunc_internal(range_func);
+    init_listiterator();
+    BuiltinFunction *range = new BuiltinFunction(range_func);
     globals["range"] = range;
-    listiterator_type = new Class("iterator", NULL);
-    listiterator_type->setmethod("next", listiterator_next);
-    BuiltinFunction *print = newbuiltinfunc_internal(print_func);
+    BuiltinFunction *print = new BuiltinFunction(print_func);
     globals["print"] = print;
-    none_type = new Class("none", NULL);
+    none_type = new Class("NoneType", NULL);
     none = new Object();
-    globals["none"] = none;
     none->type = none_type;
+    globals["None"] = none;
 }
 
 bool ends_with(const string& s, const string& ending) {

@@ -9,4 +9,6 @@ class String : public Object {
     String(string sval);
 };
 
+void init_string();
+
 #endif

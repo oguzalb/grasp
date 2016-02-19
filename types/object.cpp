@@ -9,7 +9,7 @@ void Object::setfield(string name, Object* object) {
 }
 
 void Object::setmethod(string name, void(*function)()) {
-    BuiltinFunction *func = newbuiltinfunc_internal(function);
+    BuiltinFunction *func = new BuiltinFunction(function);
     this->setfield(name, func);
 }
 

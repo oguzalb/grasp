@@ -10,4 +10,6 @@ class ListIterator : public Object {
     std::vector<Object *>::iterator *end;
 };
 
+void init_listiterator();
+
 #endif

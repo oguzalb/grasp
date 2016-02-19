@@ -18,6 +18,7 @@ using namespace std;
 #include "types/function.h"
 #include "types/list_iterator.h"
 #include "types/list.h"
+#include "types/exception.h"
 
 #define GETLOCAL(x) (gstack[bp+x])
 #define GETFUNC() (gstack.at(bp-1))
@@ -35,7 +36,7 @@ bool ends_with(const string& s, const string& ending);
 BuiltinFunction *newbuiltinfunc_internal(void(*function)());
 inline Object* POP();
 inline void PUSH(Object *);
-template<typename T> T assert_type(Object * o, Class *type);
+template<typename T> T assert_type(Object *o, Class *type);
 void newerror_internal(string message);
 void print_stack_trace();
 void dump_codes(std::vector<std::string>& codes);

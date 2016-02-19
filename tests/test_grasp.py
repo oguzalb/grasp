@@ -166,7 +166,7 @@ swp
 pushlocal 1
 call 2
 return
-pushglobal none
+pushglobal None
 return
 l1:function l2
 setglobal func1
@@ -192,7 +192,7 @@ getfield
 str c
 getfield
 return
-pushglobal none
+pushglobal None
 return
 l1:function l2
 setglobal func1
@@ -215,7 +215,7 @@ swp
 pushlocal 1
 call 2
 return
-pushglobal none
+pushglobal None
 return
 l1:function l2
 setglobal func1
@@ -267,7 +267,7 @@ call 2
 call 1
 call 2
 return
-pushglobal none
+pushglobal None
 return
 l1:function l2
 setglobal total
@@ -326,7 +326,7 @@ jmp l3
 l4:pop
 pushglobal tot
 return
-pushglobal none
+pushglobal None
 return
 l1:function l2
 setglobal total2
@@ -360,7 +360,7 @@ pushlocal 1
 str name
 swp
 setfield
-pushglobal none
+pushglobal None
 return
 l1:dup
 str __init__
@@ -373,7 +373,7 @@ str name
 getfield
 call 1
 pop
-pushglobal none
+pushglobal None
 return
 l3:dup
 str hello

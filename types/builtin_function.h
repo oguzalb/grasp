@@ -7,5 +7,6 @@ class BuiltinFunction : public Object {
     void (*function) ();
     BuiltinFunction(void(*function)());
 };
+void init_builtin_func();
 
 #endif

@@ -328,7 +328,7 @@ forstmt.process = forstmt_process
 
 
 def funcdef_action(parser, tokens):
-    parser.add_instruction("pushglobal none")
+    parser.add_instruction("pushglobal None")
     parser.add_instruction("return")
     return tokens
 funcdef.set_action(funcdef_action)
