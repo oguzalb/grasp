@@ -16,4 +16,6 @@ class Object {
     Class *type;
 };
 
+void init_object();
+
 #endif

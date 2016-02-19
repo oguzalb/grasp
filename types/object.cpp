@@ -16,18 +16,32 @@ void Object::setmethod(string name, void(*function)()) {
 Object *Object::getfield(string name) {
 // TODO exceptions
 // TODO parent chain
-    Object *field;
+    Object *field = NULL;
     try {
         field = this->fields.at(name);
     } catch (const std::out_of_range& oor) {
         assert(this->type);
-        try {
-            field = this->type->fields.at(name);
-            cout << "getfield type " << field->type << endl;
-        } catch (const std::out_of_range& oor) {
-            cout << "no field, exception" << name << endl;
-            field = NULL;
+        Class *type = this->type;
+        while (type != NULL) {
+            try {
+                field = type->fields.at(name);
+                cout << "getfield type " << type << endl;
+                break;
+            } catch (const std::out_of_range& oor) {
+            }
+            cout << "no field" << name << " " << type->type_name << endl;
+            type = type->type;
         }
     }
     return field;
+}
+
+void __str__() {
+    Object *o = POP();
+    PUSH(new String(string(o->type->type_name)));
+}
+
+void init_object() {
+    object_type = new Class("Object", NULL);
+    object_type->setmethod("__str__", __str__);
 }

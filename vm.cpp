@@ -22,6 +22,7 @@ Class *listiterator_type;
 Class *exception_type;
 Class *class_type;
 Class *int_type;
+Class *object_type;
 
 template<typename T> T assert_type(Object *o, Class *type)
 {
@@ -104,9 +105,9 @@ void setfield() {
 
 void getfield() {
     String *o1 = POP_TYPE(String, str_type);
-cout << "object type" << o1->type << endl;
+cout << "field name type" << o1->type->type_name << endl;
     Object *o2 = POP();
-cout << "object type" << o2->type << endl;
+cout << "object type" << o2->type->type_name << endl;
     Object *field = o2->getfield(o1->sval);
     if (field == NULL) {
         newerror_internal("Field not found");
@@ -118,9 +119,9 @@ cout << "object type" << o2->type << endl;
 
 void getmethod() {
     String *o1 = POP_TYPE(String, str_type);
-cout << "object type:" << o1->type << endl;
+cout << "field name type:" << o1->type->type_name << endl;
     Object *o2 = TOP();
-cout << "object type:" << o2->type << endl;
+cout << "object type:" << o2->type->type_name << endl;
     Object *field = o2->getfield(o1->sval);
     cout << "type: " << o2->type->type_name << endl;
     if (field == NULL) {
@@ -129,7 +130,7 @@ cout << "object type:" << o2->type << endl;
     }
     assert(field->type == builtinfunc_type || field->type == func_type);
     PUSH(field);
-    cout << "field pushed type " << field->type << endl;
+    cout << "field pushed type " << field->type->type_name << endl;
 }
 
 void setglobal(string name) {
@@ -161,7 +162,7 @@ void pushlocal(unsigned int ival) {
         exit(1);
     }
     gstack.push_back(GETLOCAL(ival));
-    cout << "pushed type " << TOP() << endl;
+    cout << "pushed type " << TOP()->type->type_name << endl;
 }
 
 
@@ -239,6 +240,39 @@ std::vector<std::string> *read_func_code(std::vector<std::string> &codes) {
     return funccode;
 }
 
+void call_str(Object *o) {
+    Object *str_func = o->getfield("__str__");
+    if (str_func == NULL) {
+        newerror_internal("field not found");
+        return;
+    }
+    PUSH(str_func);
+    PUSH(o);
+    assert(str_func->type == func_type || str_func->type == builtinfunc_type);
+    Function *func = static_cast<Function *>(str_func);
+    call(func->codes, 1);
+}
+
+void dummy () {
+    // TODO something went wrong with compilation of this guy and i don't know why, will be fixed
+    assert_type<Object *>(NULL, NULL);
+}
+void print_func() {
+cout << "print" << endl;
+    Object *o= POP();
+    if (o->type == str_type)
+        cout << assert_type<String *>(o, str_type)->sval << endl;
+    else if (o->type == int_type)
+        cout << assert_type<Int *>(o, int_type)->ival << endl;
+    else {
+        call_str(o);
+        // TODO will be refactored
+        String *str = POP_TYPE(String, str_type);
+        cout << str->sval << endl;
+    }
+   PUSH(none);
+}
+
 void interpret_block(std::vector<std::string> &codes) {
     while (ip < codes.size()) {
         string command;
@@ -246,14 +280,8 @@ void interpret_block(std::vector<std::string> &codes) {
         std::stringstream ss(codes[ip]);
         ss >> command;
         if (command == "pop") {
-            Object *val = POP();
-            if (val->type == int_type)
-                cout << "popped " << assert_type<Int *>(val, int_type)->ival << endl;
-            else if (val->type == none_type)
-                // Added just to pass the compilation error about the template ( :
-                cout << "popped none" << assert_type<Object *>(val, none_type) << endl;
-            else if (val->type == func_type)
-                cout << "popped func" << assert_type<Function *>(val, func_type)->name<< endl;
+            print_func();
+            POP();
         } else if (command == "function") {
             string name;
 // TODO check
@@ -389,32 +417,6 @@ void range_func() {
     PUSH(list);
 }
 
-void print_func() {
-cout << "print" << endl;
-    Object * o= POP();
-    if (o->type == str_type)
-        cout << assert_type<String *>(o, str_type)->sval << endl;
-    else if (o->type == int_type)
-        cout << assert_type<Int *>(o, int_type)->ival << endl;
-    else {
-        Object *str_func = o->getfield("__str__");
-        if (str_func == NULL) {
-            newerror_internal("field not found");
-            return;
-        }
-        PUSH(str_func);
-        PUSH(o);
-        assert(str_func->type == func_type || str_func->type == builtinfunc_type);
-        Function *func = static_cast<Function *>(str_func);
-        call(func->codes, 1);
-        // TODO will be refactored
-
-        String * str = POP_TYPE(String, str_type);
-        cout << str->sval << endl;
-    }
-    PUSH(none);
-}
-
 void print_stack_trace() {
     if (gstack.size() > 0) {
         Object *exc = POP();
@@ -444,8 +446,10 @@ void dump_codes(std::vector<std::string>& codes) {
 void init_builtins() {
     init_builtin_func();
     // TODO new instance functions should be implemented
+    init_object();
     init_bool();
     class_type = new Class("Class", NULL);
+    class_type->type = object_type;
     init_exception();
     init_int();
     init_function();
