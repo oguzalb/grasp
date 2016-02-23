@@ -3,14 +3,18 @@
 
 The grasp grammar is something like python with arrow function definition
 
-now it can parse
+now it can parse and run
+
 class Person
     __init__(self, name) ->
         self.name = name
     hello(self) ->
         print(self.name)
+    __getitem__(self, item) ->
+        return item
 person = Person("oguz")
 person.hello()
+print(person[0] + 1)
 
 Project consists of three parts
 === parse.py ===
@@ -28,11 +32,11 @@ pushlocal 1
 str name
 swp
 setfield
-pushglobal none
+pushglobal None
 return
 l1:dup
 str __init__
-function l2
+function l2 0
 setfield
 jmp l3
 l4:pushglobal print
@@ -41,11 +45,20 @@ str name
 getfield
 call 1
 pop
-pushglobal none
+pushglobal None
 return
 l3:dup
 str hello
-function l4
+function l4 0
+setfield
+jmp l5
+l6:pushlocal 1
+return
+pushglobal None
+return
+l5:dup
+str __getitem__
+function l6 0
 setfield
 pop
 pushglobal Person
@@ -56,6 +69,20 @@ pushglobal person
 str hello
 getmethod
 swp
+call 1
+pop
+pushglobal print
+pushglobal person
+str __getitem__
+getmethod
+swp
+int 0
+call 2
+str __add__
+getmethod
+swp
+int 1
+call 2
 call 1
 pop
 
