@@ -7,7 +7,7 @@ class GraspTest(unittest.TestCase):
     def _test_code(self, code, output, i):
         parser = Parser()
         main.parse_string(parser, code)
-        self.assertEquals(parser.dumpcode(), output, "test %s: \"%s\" != \"%s\"" % (i, parser.dumpcode(), output))
+        self.assertEquals(parser.dumpcode(), output, "test %s, %s: \"%s\" != \"%s\"" % (code, i, parser.dumpcode(), output))
 
     def test_varname(self):
         self._test_code('var\n', 'pushglobal var\npop\n', 0)
@@ -168,7 +168,7 @@ call 2
 return
 pushglobal None
 return
-l1:function l2
+l1:function l2 0
 setglobal func1
 """
             ), ("""
@@ -194,7 +194,7 @@ getfield
 return
 pushglobal None
 return
-l1:function l2
+l1:function l2 0
 setglobal func1
 pushglobal func1
 int 1
@@ -217,7 +217,7 @@ call 2
 return
 pushglobal None
 return
-l1:function l2
+l1:function l2 0
 setglobal func1
 pushglobal func1
 pushglobal func1
@@ -269,7 +269,7 @@ call 2
 return
 pushglobal None
 return
-l1:function l2
+l1:function l2 0
 setglobal total
 pushglobal total
 int 5
@@ -305,7 +305,7 @@ print(total2(5))
 """, 
 """jmp l1
 l2:int 0
-setglobal tot
+setlocal 1
 pushglobal range
 pushlocal 0
 call 1
@@ -314,21 +314,21 @@ getmethod
 swp
 call 1
 l3:loop l4
-setglobal i
-pushglobal tot
+setlocal 2
+pushlocal 1
 str __add__
 getmethod
 swp
-pushglobal i
+pushlocal 2
 call 2
-setglobal tot
+setlocal 1
 jmp l3
 l4:pop
-pushglobal tot
+pushlocal 1
 return
 pushglobal None
 return
-l1:function l2
+l1:function l2 2
 setglobal total2
 pushglobal print
 pushglobal total2
@@ -364,7 +364,7 @@ pushglobal None
 return
 l1:dup
 str __init__
-function l2
+function l2 0
 setfield
 jmp l3
 l4:pushglobal print
@@ -377,7 +377,7 @@ pushglobal None
 return
 l3:dup
 str hello
-function l4
+function l4 0
 setfield
 pop
 pushglobal Person

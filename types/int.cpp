@@ -2,8 +2,8 @@
 #include "../vm.h"
 
 extern Class *int_type;
-extern Object * trueobject;
-extern Object * falseobject;
+extern Object *trueobject;
+extern Object *falseobject;
 
 Int::Int(int ival) {
     this->type = int_type;
@@ -31,7 +31,7 @@ void sub() {
     Int *o1 = POP_TYPE(Int, int_type);
     Int *o2 = POP_TYPE(Int, int_type);
     // TODO exc
-    PUSH(new Int(o1->ival - o2->ival));
+    PUSH(new Int(o2->ival - o1->ival));
 }
  
 void mul() {

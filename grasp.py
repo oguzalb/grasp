@@ -10,6 +10,7 @@ class Parser():
     def __init__(self):
         self.code = StringIO()
         self.contexts = [{}]
+        self.local_var_counts = []
         self.label_counter = 0
         self.next_label = None
 
@@ -40,11 +41,16 @@ class Parser():
         self.contexts.append({})
 
     def pop_context(self):
+        self.local_var_counts.append(
+            sum(1 for v in self.contexts[-1].values() if v != -1))
         return self.contexts.pop()
+
+    def pop_local_var_count(self):
+        return self.local_var_counts.pop()
 
     def add_var(self, varname):
         context = self.contexts[-1]
-        if varname not in context:
+        if len(self.contexts) > 1 and varname not in context:
             context[varname] = len(context)
 
     def get_var(self, varname):
@@ -204,7 +210,16 @@ primitivestmt = (returnexpr | exprstmt) + Literal("\n")
 exprstmt.set_action(exprstmt_action)
 rightvalue = Group(andexpr)
 setfield = access_op + fieldname
-simpleassgmt = Word() + Literal("=") + Group(andexpr) + Literal("\n")
+
+
+def lval_action(parser, tokens):
+    # TODO fix here!!!
+    if len(parser.contexts) > 0:
+        parser.add_var(tokens[0])
+    return tokens
+lval = Word()
+lval.set_action(lval_action)
+simpleassgmt = lval + Literal("=") + Group(andexpr) + Literal("\n")
 
 
 def simpleassgmt_action(parser, tokens):
@@ -216,16 +231,17 @@ def simpleassgmt_action(parser, tokens):
     return tokens
 simpleassgmt.set_action(simpleassgmt_action)
 
-assgmt = (varname + Optional(accessor) + setfield +
-          Literal("=") + Group(andexpr) + Literal("\n"))
+fieldassgmt = (
+    varname + accessor + setfield +
+    Literal("=") + Group(andexpr) + Literal("\n"))
 
 
-def assgmt_action(parser, tokens):
+def fieldassgmt_action(parser, tokens):
     parser.add_instruction("str " + tokens[2][1])
     parser.add_instruction("swp")
     parser.add_instruction("setfield")
     return tokens
-assgmt.set_action(assgmt_action)
+fieldassgmt.set_action(fieldassgmt_action)
 stmt = Forward()
 
 
@@ -318,7 +334,9 @@ def forstmt_process(children, parser):
     endlabel = parser.new_label()
     parser.set_next_label(startlabel)
     parser.add_instruction("loop %s" % endlabel)
-    simpleassgmt_action(parser, children[0][1])
+    forvar = children[0][1]
+    parser.add_var(forvar[0])
+    simpleassgmt_action(parser, forvar)
     children[0][5].process(children[0][5], parser)
     parser.add_instruction("jmp %s" % startlabel)
     parser.set_next_label(endlabel)
@@ -337,11 +355,14 @@ namedfuncdef = Group(funcdef)
 
 
 def namedfuncdef_action(parser, tokens):
+    parser.pop_context()
     # TODO this return value issue should be fixed on parse lib
     parser.set_next_label(tokens[0][0][2])
-    parser.add_instruction("function %s" % tokens[0][0][1])
+    parser.add_instruction(
+        "function %s %s" % (
+            tokens[0][0][1],
+            parser.pop_local_var_count() - len(tokens[0][1][1])))
     parser.add_instruction("setglobal %s" % tokens[0][0][0])
-    parser.pop_context()
     return tokens
 namedfuncdef.set_action(namedfuncdef_action)
 
@@ -349,12 +370,15 @@ classmethoddef = Group(funcdef)
 
 
 def classmethoddef_action(parser, tokens):
+    parser.pop_context()
     parser.set_next_label(tokens[0][0][2])
     parser.add_instruction("dup")
     parser.add_instruction("str %s" % tokens[0][0][0])
-    parser.add_instruction("function %s" % tokens[0][0][1])
+    parser.add_instruction(
+        "function %s %s" % (
+            tokens[0][0][1],
+            parser.pop_local_var_count() - len(tokens[0][1][1])))
     parser.add_instruction("setfield")
-    parser.pop_context()
     return tokens
 classmethoddef.set_action(classmethoddef_action)
 
@@ -373,7 +397,7 @@ def classstmt_process(children, parser):
 
 classstmt.process = classstmt_process
 
-stmt << (namedfuncdef | assgmt | simpleassgmt | primitivestmt |
+stmt << (namedfuncdef | simpleassgmt | fieldassgmt | primitivestmt |
          ifstmt | forstmt | classstmt | Regex('\s+'))
 
 
@@ -398,7 +422,10 @@ def funcname_action(parser, tokens):
     parser.push_context()
     return [[tokens[0], startlabel, endlabel]]
 funcname.set_action(funcname_action)
-funcdef << funcname + defparams + Literal('->\n') + IndentedBlock(stmt)
+
+funcdef << (
+    funcname + defparams + Literal('->\n') +
+    IndentedBlock(stmt))
 main = IndentedBlock(stmt)
 
 

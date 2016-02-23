@@ -24,12 +24,13 @@ Object *Object::getfield(string name) {
         Class *type = this->type;
         while (type != NULL) {
             try {
+                cout << "searching " << name << " in " << type->type_name << endl;
                 field = type->fields.at(name);
-                cout << "getfield type " << type << endl;
+                cout << "getfield type " << type->type_name << endl;
                 break;
             } catch (const std::out_of_range& oor) {
+                cout << "no field" << name << " " << type->type_name << endl;
             }
-            cout << "no field" << name << " " << type->type_name << endl;
             type = type->type;
         }
     }
@@ -38,7 +39,7 @@ Object *Object::getfield(string name) {
 
 void __str__() {
     Object *o = POP();
-    PUSH(new String(string(o->type->type_name)));
+    PUSH(new String(string("<") + string(o->type->type_name) + string(" object") + string(">")));
 }
 
 void init_object() {

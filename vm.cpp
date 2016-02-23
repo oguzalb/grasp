@@ -89,8 +89,8 @@ void newnone() {
     PUSH(none);
 }
 
-void newfunc(std::vector<std::string> &codes, int startp, string name) {
-    Function *o = new Function(codes, startp, name);
+void newfunc(std::vector<std::string> &codes, int startp, string name, int locals_count) {
+    Function *o = new Function(codes, startp, name, locals_count);
     PUSH(o);
 }
 
@@ -170,8 +170,9 @@ void interpret_block(std::vector<std::string>& codes);
 
 void call(std::vector<std::string>& codes, int param_count) {
     // TODO stuff about param_count
+    int size_before = gstack.size();
+    int bp_temp = bp;
     bp = gstack.size() - param_count;
-
     Object *callable = GETFUNC();
     // TODO exc
     if (callable->type == func_type) {
@@ -179,9 +180,10 @@ void call(std::vector<std::string>& codes, int param_count) {
         Function *func = static_cast<Function *>(callable);
         int cur_ip = ip;
         ip = func->codep;
+        gstack.resize(gstack.size() + func->locals_count, NULL);
         interpret_block(codes);
         Object *result = POP();
-        gstack.resize(gstack.size() - param_count);
+        gstack.resize(gstack.size() - (param_count + func->locals_count));
         func = POP_TYPE(Function, func_type);
         PUSH(result);
         ip = cur_ip;
@@ -189,6 +191,7 @@ void call(std::vector<std::string>& codes, int param_count) {
         BuiltinFunction *func = static_cast<BuiltinFunction *>(callable);
         func->function();
         Object *result = POP();
+        cout << "returned " << result->type->type_name << endl;
 // builtin funcs consume the parameters
         BuiltinFunction* func_after = static_cast<BuiltinFunction *>(POP());
         assert(func_after == func);
@@ -197,6 +200,10 @@ void call(std::vector<std::string>& codes, int param_count) {
         cout << callable->type << endl;
         assert(FALSE);
     }
+    bp = bp_temp;
+    int size_after = gstack.size();
+    cout << size_before << ":" << size_after + param_count << endl;
+    assert(size_before == size_after + param_count);
 } 
 
 void swp();
@@ -223,6 +230,7 @@ void loop(std::vector<std::string>& codes, int location) {
 void swp() {
     Object *o1 = POP();
     Object *o2 = POP();
+    cout << "swapping " <<  o1->type->type_name << " with " << o2->type->type_name << endl;
     PUSH(o1);
     PUSH(o2);
 }
@@ -243,7 +251,7 @@ std::vector<std::string> *read_func_code(std::vector<std::string> &codes) {
 void call_str(Object *o) {
     Object *str_func = o->getfield("__str__");
     if (str_func == NULL) {
-        newerror_internal("field not found");
+        newerror_internal("does not have str");
         return;
     }
     PUSH(str_func);
@@ -266,11 +274,24 @@ cout << "print" << endl;
         cout << assert_type<Int *>(o, int_type)->ival << endl;
     else {
         call_str(o);
+        if (TOP()->type == exception_type) {
+            return;
+        }
         // TODO will be refactored
         String *str = POP_TYPE(String, str_type);
         cout << str->sval << endl;
     }
    PUSH(none);
+}
+
+void dump_stack() {
+    cout << "bp: " << bp << endl;
+    for (int i=0; i < gstack.size(); i++) {
+        Object *o = gstack.at(i);
+        if (o == NULL)
+            cout << "UNBOUND" << endl;
+        cout << o->type->type_name << endl;
+    }
 }
 
 void interpret_block(std::vector<std::string> &codes) {
@@ -280,19 +301,23 @@ void interpret_block(std::vector<std::string> &codes) {
         std::stringstream ss(codes[ip]);
         ss >> command;
         if (command == "pop") {
-            print_func();
-            POP();
+            if (TOP()->type != none_type)
+                print_func();
+            if (TOP()->type != exception_type)
+                POP();
         } else if (command == "function") {
             string name;
 // TODO check
             int startp;
             string startlabel;
             ss >> startlabel;
+            int locals_count;
+            ss >> locals_count;
             // TODO sanity check
             startp = labels.at(startlabel);
             cout << "function code read " << startp << endl;
 // TODO
-            newfunc(codes, startp, name);
+            newfunc(codes, startp, name, locals_count);
             cout << "next: " << codes[ip] << endl;
         } else if (command == "int") {
             int ival;
@@ -377,17 +402,19 @@ void interpret_block(std::vector<std::string> &codes) {
             cout << "jnt " << location << endl;
             Object *o = POP();
             if (o == falseobject)
-                ip = location-1; // will increase at the end of loop
+                ip = location - 1; // will increase at the end of loop
         } else {
             cerr << "command not defined" << command << endl;
             throw std::exception();
         }
         if (gstack.size() > 0) {
+cout << gstack.size() << endl;
             Object *exc = TOP();
             if (exc->type == exception_type) {
                 break;
             }
         }
+        //dump_stack();
         ip++;
     }
 }
@@ -447,9 +474,9 @@ void init_builtins() {
     init_builtin_func();
     // TODO new instance functions should be implemented
     init_object();
-    init_bool();
     class_type = new Class("Class", NULL);
     class_type->type = object_type;
+    init_bool();
     init_exception();
     init_int();
     init_function();

@@ -8,7 +8,8 @@ class Function : public Object {
     int codep;
     std::vector<std::string> codes;
     string name;
-    Function(std::vector<std::string> &codes, int startp, string name);
+    int locals_count;
+    Function(std::vector<std::string> &codes, int startp, string name, int locals_count);
 };
 
 void init_function();
