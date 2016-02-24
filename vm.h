@@ -31,7 +31,7 @@ using namespace std;
 
 void init_builtins();
 void interpret_block(std::vector<std::string>& codes);
-void read_codes(std::stringstream& fs, std::vector<std::string> &codes);
+void read_labels(std::stringstream& fs, std::vector<std::string> &codes);
 bool ends_with(const string& s, const string& ending);
 BuiltinFunction *newbuiltinfunc_internal(void(*function)());
 inline Object* POP();

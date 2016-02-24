@@ -202,7 +202,7 @@ void call(std::vector<std::string>& codes, int param_count) {
     }
     bp = bp_temp;
     int size_after = gstack.size();
-    cout << size_before << ":" << size_after + param_count << endl;
+    //cout << size_before << ":" << size_after + param_count << endl;
     assert(size_before == size_after + param_count);
 } 
 
@@ -408,7 +408,6 @@ void interpret_block(std::vector<std::string> &codes) {
             throw std::exception();
         }
         if (gstack.size() > 0) {
-cout << gstack.size() << endl;
             Object *exc = TOP();
             if (exc->type == exception_type) {
                 break;
@@ -419,7 +418,7 @@ cout << gstack.size() << endl;
     }
 }
 
-void read_codes(std::stringstream& fs, std::vector<std::string> &codes) {
+void read_labels(std::stringstream& fs, std::vector<std::string> &codes) {
     std::string line;
     int index;
     int temp_ip = ip;
@@ -452,7 +451,7 @@ void print_stack_trace() {
         print_func();
         POP();
     } else {
-        cout << "no stack" << endl;
+        cout << "no stack to print" << endl;
     }
 }
 
