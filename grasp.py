@@ -143,7 +143,6 @@ def infix_process(name):
             if hasattr(children[0], "process") else None]
         parser.add_instruction("str __%s__" % name)
         parser.add_instruction("getmethod")
-        parser.add_instruction("swp")
         results.append(
             children[2].process(children[2], parser)
             if hasattr(children[2], "process") else None)
@@ -189,7 +188,6 @@ getitem = (
 def getitem_process(children, parser):
     parser.add_instruction("str __getitem__")
     parser.add_instruction("getmethod")
-    parser.add_instruction("swp")
     results = [child.process(child, parser) for child in children[0]]
     parser.add_instruction("call 2")
     return results
@@ -204,7 +202,6 @@ trailer = atom + Optional(accessor) + Optional(
 def trailerwithcall_process(children, parser):
     parser.add_instruction("str " + children[0][1][0])
     parser.add_instruction("getmethod")
-    parser.add_instruction("swp")
     return [child.process(child, parser) for child in children[0]]
 
 trailerwithcall.process = trailerwithcall_process
@@ -374,7 +371,6 @@ def forstmt_process(children, parser):
     children[0][3].process(children[0][3], parser)
     parser.add_instruction("str iter")
     parser.add_instruction("getmethod")
-    parser.add_instruction("swp")
     parser.add_instruction("call 1")
     endlabel = parser.new_label()
     parser.set_next_label(startlabel)

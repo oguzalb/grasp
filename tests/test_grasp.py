@@ -23,7 +23,6 @@ class GraspTest(unittest.TestCase):
 """pushglobal a
 str __div__
 getmethod
-swp
 pushglobal b
 call 2
 pop
@@ -33,12 +32,10 @@ pop
 """pushglobal a
 str __sub__
 getmethod
-swp
 pushglobal b
 call 2
 str __sub__
 getmethod
-swp
 pushglobal c
 call 2
 pop
@@ -48,20 +45,16 @@ pop
 """pushglobal a
 str __sub__
 getmethod
-swp
 pushglobal b
 call 2
 str __add__
 getmethod
-swp
 pushglobal c
 str __mul__
 getmethod
-swp
 pushglobal d
 str __div__
 getmethod
-swp
 pushglobal e
 call 2
 call 2
@@ -73,32 +66,26 @@ pop
 """pushglobal a
 str __sub__
 getmethod
-swp
 pushglobal b
 call 2
 str __add__
 getmethod
-swp
 pushglobal c
 str __mul__
 getmethod
-swp
 pushglobal d
 str __div__
 getmethod
-swp
 pushglobal e
 call 2
 call 2
 call 2
 str __or__
 getmethod
-swp
 pushglobal f
 call 2
 str __and__
 getmethod
-swp
 pushglobal g
 call 2
 pop
@@ -137,7 +124,6 @@ pop
 """pushglobal a
 str __add__
 getmethod
-swp
 pushglobal b
 call 2
 return
@@ -154,7 +140,7 @@ func1(a,b) ->
     func2(c)
     return a+b
 """,
-"""jmp 14
+"""jmp 13
 pushglobal func2
 pushglobal c
 call 1
@@ -162,13 +148,12 @@ pop
 pushlocal 0
 str __add__
 getmethod
-swp
 pushlocal 1
 call 2
 return
 pushglobal None
 return
-function -13 0
+function -12 0
 setglobal func1
 """
             ), ("""
@@ -207,17 +192,16 @@ func1(a,b) ->
 func1.func = func1
 func1.func(1,2)
 """, 
-"""jmp 10
+"""jmp 9
 pushlocal 0
 str __add__
 getmethod
-swp
 pushlocal 1
 call 2
 return
 pushglobal None
 return
-function -9 0
+function -8 0
 setglobal func1
 pushglobal func1
 pushglobal func1
@@ -227,7 +211,6 @@ setfield
 pushglobal func1
 str func
 getmethod
-swp
 int 1
 int 2
 call 3
@@ -241,11 +224,10 @@ total(a) ->
         return a + total(a - 1)
 total(5)
 """, 
-"""jmp 28
+"""jmp 25
 pushlocal 0
 str __equals__
 getmethod
-swp
 int 1
 call 2
 jnt 4
@@ -256,12 +238,10 @@ nop
 pushlocal 0
 str __add__
 getmethod
-swp
 pushglobal total
 pushlocal 0
 str __sub__
 getmethod
-swp
 int 1
 call 2
 call 1
@@ -269,7 +249,7 @@ call 2
 return
 pushglobal None
 return
-function -27 0
+function -24 0
 setglobal total
 pushglobal total
 int 5
@@ -285,7 +265,6 @@ int 5
 call 1
 str iter
 getmethod
-swp
 call 1
 loop 7
 setglobal a
@@ -303,7 +282,7 @@ total2(a) ->
     return tot
 print(total2(5))
 """, 
-"""jmp 25
+"""jmp 23
 int 0
 setlocal 1
 pushglobal range
@@ -311,24 +290,22 @@ pushlocal 0
 call 1
 str iter
 getmethod
-swp
 call 1
-loop 10
+loop 9
 setlocal 2
 pushlocal 1
 str __add__
 getmethod
-swp
 pushlocal 2
 call 2
 setlocal 1
-jmp -9
+jmp -8
 pop
 pushlocal 1
 return
 pushglobal None
 return
-function -24 2
+function -22 2
 setglobal total2
 pushglobal print
 pushglobal total2
@@ -387,7 +364,6 @@ setglobal person
 pushglobal person
 str hello
 getmethod
-swp
 call 1
 pop
 """, 0)

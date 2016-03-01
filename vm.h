@@ -30,7 +30,7 @@ using namespace std;
 #define TRUE 1
 #define FALSE 0
 
-void init_builtins();
+void init_builtins(std::vector<string> *codes);
 void interpret_block(std::vector<std::string>& codes);
 void convert_codes(std::stringstream& fs, std::vector<std::string> &codes);
 bool ends_with(const string& s, const string& ending);
@@ -42,4 +42,6 @@ void newerror_internal(string message);
 void print_stack_trace();
 void dump_codes(std::vector<std::string>& codes);
 std::stringstream read_codes(string filename);
+void dump_stack();
+void compile_file(string module_name);
 #endif

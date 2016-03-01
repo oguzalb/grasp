@@ -122,7 +122,7 @@ cout << "object type" << o2->type->type_name << endl;
 void getmethod() {
     String *o1 = POP_TYPE(String, str_type);
 cout << "field name type:" << o1->type->type_name << endl;
-    Object *o2 = TOP();
+    Object *o2 = POP();
 cout << "object type:" << o2->type->type_name << endl;
     Object *field = o2->getfield(o1->sval);
     cout << "type: " << o2->type->type_name << endl;
@@ -132,6 +132,7 @@ cout << "object type:" << o2->type->type_name << endl;
     }
     assert(field->type == builtinfunc_type || field->type == func_type);
     PUSH(field);
+    PUSH(o2);
     cout << "field pushed type " << field->type->type_name << endl;
 }
 
@@ -140,7 +141,23 @@ void setglobal(string name) {
 }
 
 void import(string module_name) {
-    PUSH(none);
+    compile_file(module_name);
+    std::stringstream ss = read_codes(module_name + string(".graspo"));
+    Module *module = new Module(new std::vector<string>());
+    std::unordered_map<string, Object *> *globals_tmp = globals;
+    globals = &module->fields;
+    convert_codes(ss, *module->codes);
+    int tmp_ip = ip;
+    ip = 0;
+    interpret_block(*module->codes);
+    ip = tmp_ip;
+    globals = globals_tmp;
+    globals->insert({module_name, module});
+    if (gstack.size() > 0) {
+        if (TOP()->type == exception_type)
+            return;
+    }
+    dump_stack();
 }
 
 void setlocal(unsigned int ival) {
@@ -157,7 +174,6 @@ void pushglobal(string name) {
     try {
         PUSH(globals->at(name));
     } catch (const std::out_of_range& oor) {
-        cerr << "Global named " << name << " not found" << endl;
         try {
             PUSH(builtins->at(name));
         } catch (const std::out_of_range& oor) {
@@ -192,7 +208,7 @@ void call(std::vector<std::string>& codes, int param_count) {
         int cur_ip = ip;
         ip = func->codep;
         gstack.resize(gstack.size() + func->locals_count, NULL);
-        interpret_block(codes);
+        interpret_block(func->codes);
         Object *result = POP();
         gstack.resize(gstack.size() - (param_count + func->locals_count));
         func = POP_TYPE(Function, func_type);
@@ -224,7 +240,6 @@ void loop(std::vector<std::string>& codes, int location) {
     PUSH(it);
     newstr("next");
     getmethod();
-    swp();
     call(codes, 1);
     Object *result = TOP();
 // stop iteration should have its type
@@ -354,7 +369,6 @@ void interpret_block(std::vector<std::string> &codes) {
             string module_name;
             ss >> module_name;
             import(module_name);
-            setglobal(module_name);
         } else if (command == "return") {
             cout << "return" << endl;
             break;
@@ -483,11 +497,10 @@ std::stringstream read_codes(string filename) {
 }
  
 
-void init_builtins() {
+void init_builtins(std::vector<std::string> *codes) {
     globals = new std::unordered_map<string, Object *>();
     init_builtin_func();
     // TODO new instance functions should be implemented
-    init_module();
     init_object();
     class_type = new Class("Class", NULL);
     class_type->type = object_type;
@@ -508,6 +521,28 @@ void init_builtins() {
     (*globals)["None"] = none;
     builtins = globals;
     globals = new std::unordered_map<string, Object *>();
+    init_module();
+    main_module = new Module(codes);
+}
+
+void compile_file(string module_name) {
+ // TODO workaround, will be changed
+ // when grasp starts compiling itself
+   FILE *fpipe;
+   string command="python grasp.py ";
+// TODO check if it was already there
+   const char *compile_command = (command + module_name + ".grasp").c_str();
+   if (!(fpipe = (FILE*)popen(compile_command, "r")) ) {
+      perror("Problems with pipe");
+      exit(1);
+   }
+    char buff[1024];
+    while(fgets(buff, sizeof(buff), fpipe)!=NULL) {
+        printf("%s", buff);
+    }
+
+// TODO error check
+   pclose(fpipe);
 }
 
 bool ends_with(const string& s, const string& ending) {

@@ -33,8 +33,8 @@ std::stringstream compile(string code) {
 }
 
 int main (int argc, char *argv[]) {
-    init_builtins();
     std::vector<std::string> codes;
+    init_builtins(&codes);
     string code;
     while (1){
         string line;
