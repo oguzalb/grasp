@@ -10,6 +10,7 @@
 #include <stdexcept>
 using namespace std;
 #include "types/object.h"
+#include "types/module.h"
 #include "types/builtin_function.h"
 #include "types/class.h"
 #include "types/int.h"

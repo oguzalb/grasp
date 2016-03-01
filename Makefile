@@ -1,6 +1,6 @@
 LIBS=
 FLAGS=-std=c++0x -g -Wall -v
-TYPES=int.cpp string.cpp object.cpp builtin_function.cpp class.cpp bool.cpp function.cpp list_iterator.cpp list.cpp exception.cpp
+TYPES=int.cpp string.cpp object.cpp builtin_function.cpp class.cpp bool.cpp function.cpp list_iterator.cpp list.cpp exception.cpp module.cpp
 SOURCES=$(TYPES:%.cpp=types/%.cpp)
 OBJECTS=$(SOURCES:.cpp=.o) vm.o
 .cpp.o:

@@ -9,6 +9,7 @@ std::vector<Object *> locals;
 std::unordered_map<string, Object *> *builtins;
 std::unordered_map<string, Object *> *globals;
 
+Module *main_module;
 Bool *trueobject;
 Bool *falseobject;
 Object *none;
@@ -23,6 +24,7 @@ Class *exception_type;
 Class *class_type;
 Class *int_type;
 Class *object_type;
+Class *module_type;
 
 template<typename T> T assert_type(Object *o, Class *type)
 {
@@ -474,7 +476,6 @@ std::stringstream read_codes(string filename) {
     std::fstream fs;
     fs.open(filename, std::fstream::in);
     std::stringstream ss;
-    std::vector<std::string> codes;
     copy(istreambuf_iterator<char>(fs),
      istreambuf_iterator<char>(),
      ostreambuf_iterator<char>(ss));
@@ -486,6 +487,7 @@ void init_builtins() {
     globals = new std::unordered_map<string, Object *>();
     init_builtin_func();
     // TODO new instance functions should be implemented
+    init_module();
     init_object();
     class_type = new Class("Class", NULL);
     class_type->type = object_type;
