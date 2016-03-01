@@ -1,4 +1,5 @@
 import sys
+import re
 from parser.parse import (
     Word, quotedString, DelimitedList, Infix, Literal,
     IndentedBlock, Forward, Optional, Regex, Group,
@@ -33,9 +34,43 @@ class Parser():
     def __repr__(self):
         return "code:\n%s" % self.dumpcode()
 
+    def convert_labels(self, code):
+        labels = {}
+        code_lines = code.split('\n')
+        # TODO workaround
+        assert code_lines[-1] == ''
+        del code_lines[-1]
+        new_code_lines = []
+        for i, c in enumerate(code_lines):
+            if re.search("^\w+:", c):
+                label = c[:c.index(":")]
+                labels[label] = i
+                new_code_lines.append(c[c.index(":")+1:])
+            else:
+                new_code_lines.append(c)
+        code_lines = new_code_lines
+        label_indexes = {
+            "jnt": 1,
+            "jmp": 1,
+            "loop": 1,
+            "function": 1,
+        }
+        new_code_lines = []
+        for i, line in enumerate(code_lines):
+            instruction = line.split()[0]
+            if instruction in label_indexes:
+                index = label_indexes[instruction]
+                line_code = line.split()
+                line_code[index] = str(labels[line_code[index]] - i)
+                new_code_lines.append(" ".join(line_code))
+            else:
+                new_code_lines.append(line)
+        return '\n'.join(new_code_lines) + '\n'
+
     def dumpcode(self):
-        return self.code.getvalue() + ("" if self.next_label is None
+        code = self.code.getvalue() + ("" if self.next_label is None
                                        else self.next_label + ":nop\n")
+        return self.convert_labels(code)
 
     def push_context(self):
         self.contexts.append({})

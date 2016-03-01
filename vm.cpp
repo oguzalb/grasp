@@ -7,7 +7,6 @@ std::vector<Object *> gstack;
 unsigned int bp;
 std::vector<Object *> locals;
 std::unordered_map<string, Object *> globals;
-std::unordered_map<string, int> labels;
 
 Bool *trueobject;
 Bool *falseobject;
@@ -220,7 +219,7 @@ void loop(std::vector<std::string>& codes, int location) {
     if (result->type != exception_type) {
         // continue, might get filled
     } else {
-        ip = location;
+        ip += location;
         // pop the iterator and dummy none, not needed anymore
         assert(POP()->type == exception_type);
         assert(POP() == it);
@@ -309,16 +308,14 @@ void interpret_block(std::vector<std::string> &codes) {
             string name;
 // TODO check
             int startp;
-            string startlabel;
-            ss >> startlabel;
+            ss >> startp;
             int locals_count;
             ss >> locals_count;
             // TODO sanity check
-            startp = labels.at(startlabel);
             cout << "function code read " << startp << endl;
 // TODO
-            newfunc(codes, startp, name, locals_count);
-            cout << "next: " << codes[ip] << endl;
+            newfunc(codes, ip + startp, name, locals_count);
+            cout << "next: " << codes[ip+startp] << endl;
         } else if (command == "int") {
             int ival;
             ss >> ival;
@@ -382,27 +379,24 @@ void interpret_block(std::vector<std::string> &codes) {
             cout << "getmethod" << endl;
             getmethod();
         } else if (command == "jmp") {
-            string label;
-            ss >> label;
-            int location = labels.at(label);
+            int location;
+            ss >> location;
 // TODO check
             cout << "jmp " << location << endl;
-            ip = location-1; // will increase at the end of loop
+            ip += location-1; // will increase at the end of loop
         } else if (command == "loop"){
-            string label;
-            ss >> label;
-            int location = labels.at(label);
+            int location;
+            ss >> location;
             cout << "loop " << location << endl;
             loop(codes, location);
         } else if (command == "jnt") {
-            string label;
-            ss >> label;
-            int location = labels.at(label);
+            int location;
+            ss >> location;
 // TODO check
             cout << "jnt " << location << endl;
             Object *o = POP();
             if (o == falseobject)
-                ip = location - 1; // will increase at the end of loop
+                ip += location - 1; // will increase at the end of loop
         } else {
             cerr << "command not defined" << command << endl;
             throw std::exception();
@@ -415,23 +409,6 @@ void interpret_block(std::vector<std::string> &codes) {
         }
         //dump_stack();
         ip++;
-    }
-}
-
-void read_labels(std::stringstream& fs, std::vector<std::string> &codes) {
-    std::string line;
-    int index;
-    int temp_ip = ip;
-    // resets the labels
-    labels = std::unordered_map<string, int>();
-    while (std::getline(fs, line)) {
-        if ((index = line.find(":")) != string::npos) {
-cout << "label:" << line.substr(0, index) << " index:" << temp_ip << endl;
-            labels.insert({line.substr(0, index), temp_ip});
-            line = line.substr(index+1);
-        }
-        codes.push_back(line);
-        temp_ip++;
     }
 }
 
@@ -455,16 +432,26 @@ void print_stack_trace() {
     }
 }
 
+void convert_codes(std::stringstream& fs, std::vector<std::string> &codes) {
+    std::string line;
+    int index;
+    int temp_ip = ip;
+    while (std::getline(fs, line)) {
+        if ((index = line.find(":")) != string::npos) {
+cout << "label:" << line.substr(0, index) << " index:" << temp_ip << endl;
+            line = line.substr(index+1);
+        }
+        codes.push_back(line);
+        temp_ip++;
+    }
+}
+
 void dump_codes(std::vector<std::string>& codes) {
     cout << "Dumping codes" << endl;
     int i = 0;
     for (auto &line : codes) {
         cout << i << " " << line << endl;
         i++;
-    }
-    cout << "Dumping labels" << endl;
-    for (auto &label : labels) {
-        cout << label.first << ":" << label.second << endl;
     }
 }
 

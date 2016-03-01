@@ -154,8 +154,8 @@ func1(a,b) ->
     func2(c)
     return a+b
 """,
-"""jmp l1
-l2:pushglobal func2
+"""jmp 14
+pushglobal func2
 pushglobal c
 call 1
 pop
@@ -168,7 +168,7 @@ call 2
 return
 pushglobal None
 return
-l1:function l2 0
+function -13 0
 setglobal func1
 """
             ), ("""
@@ -185,8 +185,8 @@ func1(a) ->
     return a.b.c
 func1(1)
 """, 
-"""jmp l1
-l2:pushlocal 0
+"""jmp 9
+pushlocal 0
 str b
 getfield
 str c
@@ -194,7 +194,7 @@ getfield
 return
 pushglobal None
 return
-l1:function l2 0
+function -8 0
 setglobal func1
 pushglobal func1
 int 1
@@ -207,8 +207,8 @@ func1(a,b) ->
 func1.func = func1
 func1.func(1,2)
 """, 
-"""jmp l1
-l2:pushlocal 0
+"""jmp 10
+pushlocal 0
 str __add__
 getmethod
 swp
@@ -217,7 +217,7 @@ call 2
 return
 pushglobal None
 return
-l1:function l2 0
+function -9 0
 setglobal func1
 pushglobal func1
 pushglobal func1
@@ -241,19 +241,19 @@ total(a) ->
         return a + total(a - 1)
 total(5)
 """, 
-"""jmp l1
-l2:pushlocal 0
+"""jmp 28
+pushlocal 0
 str __equals__
 getmethod
 swp
 int 1
 call 2
-jnt l4
+jnt 4
 int 1
 return
-jmp l3
-l4:nop
-l3:pushlocal 0
+jmp 2
+nop
+pushlocal 0
 str __add__
 getmethod
 swp
@@ -269,7 +269,7 @@ call 2
 return
 pushglobal None
 return
-l1:function l2 0
+function -27 0
 setglobal total
 pushglobal total
 int 5
@@ -287,14 +287,14 @@ str iter
 getmethod
 swp
 call 1
-l1:loop l2
+loop 7
 setglobal a
 pushglobal print
 pushglobal a
 call 1
 pop
-jmp l1
-l2:pop
+jmp -6
+pop
 """     ), ("""
 total2(a) ->
     tot = 0
@@ -303,8 +303,8 @@ total2(a) ->
     return tot
 print(total2(5))
 """, 
-"""jmp l1
-l2:int 0
+"""jmp 25
+int 0
 setlocal 1
 pushglobal range
 pushlocal 0
@@ -313,7 +313,7 @@ str iter
 getmethod
 swp
 call 1
-l3:loop l4
+loop 10
 setlocal 2
 pushlocal 1
 str __add__
@@ -322,13 +322,13 @@ swp
 pushlocal 2
 call 2
 setlocal 1
-jmp l3
-l4:pop
+jmp -9
+pop
 pushlocal 1
 return
 pushglobal None
 return
-l1:function l2 2
+function -24 2
 setglobal total2
 pushglobal print
 pushglobal total2
@@ -354,20 +354,20 @@ person.hello()
 """class
 dup
 setglobal Person
-jmp l1
-l2:pushlocal 0
+jmp 8
+pushlocal 0
 pushlocal 1
 str name
 swp
 setfield
 pushglobal None
 return
-l1:dup
+dup
 str __init__
-function l2 0
+function -9 0
 setfield
-jmp l3
-l4:pushglobal print
+jmp 9
+pushglobal print
 pushlocal 0
 str name
 getfield
@@ -375,9 +375,9 @@ call 1
 pop
 pushglobal None
 return
-l3:dup
+dup
 str hello
-function l4 0
+function -10 0
 setfield
 pop
 pushglobal Person

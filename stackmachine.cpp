@@ -24,7 +24,7 @@ int main (int argc, char *argv[]) {
     init_builtins();
     std::stringstream ss = read_codes(sourcefilename);
     std::vector<std::string> codes;
-    read_labels(ss, codes);
+    convert_codes(ss, codes);
     interpret_block(codes);
     print_stack_trace();
 

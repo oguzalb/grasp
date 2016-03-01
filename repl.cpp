@@ -48,7 +48,7 @@ int main (int argc, char *argv[]) {
             cout << "..";
         }
         std::stringstream ss = compile(code);
-        read_codes(ss, codes);
+        convert_codes(ss, codes);
         dump_codes(codes);
         interpret_block(codes);
         if (gstack.size() > 0) {
