@@ -6,7 +6,8 @@ unsigned int ip;
 std::vector<Object *> gstack;
 unsigned int bp;
 std::vector<Object *> locals;
-std::unordered_map<string, Object *> globals;
+std::unordered_map<string, Object *> *builtins;
+std::unordered_map<string, Object *> *globals;
 
 Bool *trueobject;
 Bool *falseobject;
@@ -133,7 +134,7 @@ cout << "object type:" << o2->type->type_name << endl;
 }
 
 void setglobal(string name) {
-    globals[name] = POP();
+    (*globals)[name] = POP();
 }
 
 void setlocal(unsigned int ival) {
@@ -148,10 +149,15 @@ void setlocal(unsigned int ival) {
 
 void pushglobal(string name) {
     try {
-        PUSH(globals.at(name));
+        PUSH(globals->at(name));
     } catch (const std::out_of_range& oor) {
         cerr << "Global named " << name << " not found" << endl;
-        exit(1);
+        try {
+            PUSH(builtins->at(name));
+        } catch (const std::out_of_range& oor) {
+            cerr << "Global named " << name << " not found in builtins" << endl;
+            exit(1);
+        }
     }
 }
 
@@ -457,6 +463,7 @@ void dump_codes(std::vector<std::string>& codes) {
 
 
 void init_builtins() {
+    globals = new std::unordered_map<string, Object *>();
     init_builtin_func();
     // TODO new instance functions should be implemented
     init_object();
@@ -470,13 +477,15 @@ void init_builtins() {
     init_list();
     init_listiterator();
     BuiltinFunction *range = new BuiltinFunction(range_func);
-    globals["range"] = range;
+    (*globals)["range"] = range;
     BuiltinFunction *print = new BuiltinFunction(print_func);
-    globals["print"] = print;
+    (*globals)["print"] = print;
     none_type = new Class("NoneType", NULL);
     none = new Object();
     none->type = none_type;
-    globals["None"] = none;
+    (*globals)["None"] = none;
+    builtins = globals;
+    globals = new std::unordered_map<string, Object *>();
 }
 
 bool ends_with(const string& s, const string& ending) {
