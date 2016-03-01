@@ -137,6 +137,10 @@ void setglobal(string name) {
     (*globals)[name] = POP();
 }
 
+void import(string module_name) {
+    PUSH(none);
+}
+
 void setlocal(unsigned int ival) {
     if (ival >= (LOCALSIZE())) {
         cerr << "OUPSSS, size bigger than locals" << endl;
@@ -343,7 +347,12 @@ void interpret_block(std::vector<std::string> &codes) {
             cout << "class " << endl;
             newclass_internal();
 // TODO check
- 
+        } else if (command == "import") {
+            cout << "import" << endl;
+            string module_name;
+            ss >> module_name;
+            import(module_name);
+            setglobal(module_name);
         } else if (command == "return") {
             cout << "return" << endl;
             break;
@@ -461,6 +470,17 @@ void dump_codes(std::vector<std::string>& codes) {
     }
 }
 
+std::stringstream read_codes(string filename) {
+    std::fstream fs;
+    fs.open(filename, std::fstream::in);
+    std::stringstream ss;
+    std::vector<std::string> codes;
+    copy(istreambuf_iterator<char>(fs),
+     istreambuf_iterator<char>(),
+     ostreambuf_iterator<char>(ss));
+    return ss;
+}
+ 
 
 void init_builtins() {
     globals = new std::unordered_map<string, Object *>();

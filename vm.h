@@ -40,4 +40,5 @@ template<typename T> T assert_type(Object *o, Class *type);
 void newerror_internal(string message);
 void print_stack_trace();
 void dump_codes(std::vector<std::string>& codes);
+std::stringstream read_codes(string filename);
 #endif

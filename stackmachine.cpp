@@ -1,16 +1,6 @@
 #include "vm.h"
 #include "string.h"
-std::stringstream read_codes(string filename) {
-    std::fstream fs;
-    fs.open(filename, std::fstream::in);
-    std::stringstream ss;
-    std::vector<std::string> codes;
-    copy(istreambuf_iterator<char>(fs),
-     istreambuf_iterator<char>(),
-     ostreambuf_iterator<char>(ss));
-    return ss;
-}
- 
+
 int main (int argc, char *argv[]) {
     if (argc != 2) {
         cerr << "Needs file as an argument" << endl;

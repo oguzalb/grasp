@@ -233,6 +233,16 @@ def return_action(parser, tokens):
     parser.add_instruction("return")
     return tokens
 returnexpr.set_action(return_action)
+
+importstmt = Literal('import') + Word()
+
+
+def import_action(parser, tokens):
+    parser.add_instruction("import %s" % tokens[1])
+    return tokens
+importstmt.set_action(import_action)
+
+
 exprstmt = Group(andexpr)
 
 
@@ -241,7 +251,7 @@ def exprstmt_action(parser, tokens):
     return tokens
 funcdef = Forward()
 # return is first, expr can get return as identifier!!!
-primitivestmt = (returnexpr | exprstmt) + Literal("\n")
+primitivestmt = (returnexpr | importstmt | exprstmt) + Literal("\n")
 exprstmt.set_action(exprstmt_action)
 rightvalue = Group(andexpr)
 setfield = access_op + fieldname
