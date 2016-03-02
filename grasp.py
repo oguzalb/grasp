@@ -65,7 +65,8 @@ class Parser():
                 new_code_lines.append(" ".join(line_code))
             else:
                 new_code_lines.append(line)
-        return '\n'.join(new_code_lines) + '\n'
+        return '\n'.join(new_code_lines) + '\n' if len(
+            new_code_lines) > 0 else ''
 
     def dumpcode(self):
         code = self.code.getvalue() + ("" if self.next_label is None
