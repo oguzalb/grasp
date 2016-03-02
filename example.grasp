@@ -1,4 +1,4 @@
-import count
+from count import count
 class Person
     __init__(self, name) ->
         self.name = name
@@ -12,5 +12,5 @@ print(person[0] + 1)
 for i in range(10)
     print(i)
 i = 4
-count.count(4)
+count(4)
 i.nonexistent_field

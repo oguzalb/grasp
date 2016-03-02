@@ -231,11 +231,11 @@ def return_action(parser, tokens):
     return tokens
 returnexpr.set_action(return_action)
 
-importstmt = Literal('import') + Word()
+importstmt = Literal('from') + Word() + Literal('import') + Word()
 
 
 def import_action(parser, tokens):
-    parser.add_instruction("import %s" % tokens[1])
+    parser.add_instruction("import %s %s" % (tokens[1], tokens[3]))
     return tokens
 importstmt.set_action(import_action)
 

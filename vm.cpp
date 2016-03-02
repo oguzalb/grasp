@@ -140,7 +140,22 @@ void setglobal(string name) {
     (*globals)[name] = POP();
 }
 
-void import(string module_name) {
+inline Object *getglobal(string name) {
+    Object *o = NULL;
+    try {
+        o = globals->at(name);
+    } catch (const std::out_of_range& oor) {
+        try {
+            o = builtins->at(name);
+        } catch (const std::out_of_range& oor) {
+            cerr << "Global named " << name << " not found in builtins" << endl;
+            return NULL;
+        }
+    }
+    return o;
+}
+
+Object *load_module(string module_name) {
     compile_file(module_name);
     std::stringstream ss = read_codes(module_name + string(".graspo"));
     Module *module = new Module(new std::vector<string>());
@@ -152,12 +167,35 @@ void import(string module_name) {
     interpret_block(*module->codes);
     ip = tmp_ip;
     globals = globals_tmp;
-    globals->insert({module_name, module});
     if (gstack.size() > 0) {
         if (TOP()->type == exception_type)
+            return NULL;
+    }
+    //dump_stack();
+    return module;
+}
+
+void import(string module_name, string var_name) {
+    cout << module_name << "." << var_name << endl;
+    Object *module = getglobal(module_name);
+    if (module == NULL) {
+        module = load_module(module_name);
+        if (module == NULL)
             return;
     }
-    dump_stack();
+    if (module->type != module_type) {
+        string message = "global " + module_name + " is not a module";
+        newerror_internal(message);
+        return;
+    }
+    (*globals)[module_name] = module;
+    Object *var = module->getfield(var_name);
+    if (var == NULL) {
+        string message = "Couldn't import " + var_name + " from " + module_name;
+        newerror_internal(message);
+        return;
+    }
+    (*globals)[var_name] = module->getfield(var_name);
 }
 
 void setlocal(unsigned int ival) {
@@ -171,16 +209,10 @@ void setlocal(unsigned int ival) {
 }
 
 void pushglobal(string name) {
-    try {
-        PUSH(globals->at(name));
-    } catch (const std::out_of_range& oor) {
-        try {
-            PUSH(builtins->at(name));
-        } catch (const std::out_of_range& oor) {
-            cerr << "Global named " << name << " not found in builtins" << endl;
-            exit(1);
-        }
-    }
+    Object *o = getglobal(name);
+    if (o == NULL)
+        exit(1);
+    PUSH(o);
 }
 
 void pushlocal(unsigned int ival) {
@@ -224,7 +256,7 @@ void call(std::vector<std::string>& codes, int param_count) {
         assert(func_after == func);
         PUSH(result);
     } else {
-        cout << callable->type << endl;
+        cout << callable->type->type_name << endl;
         assert(FALSE);
     }
     bp = bp_temp;
@@ -368,7 +400,9 @@ void interpret_block(std::vector<std::string> &codes) {
             cout << "import" << endl;
             string module_name;
             ss >> module_name;
-            import(module_name);
+            string var_name;
+            ss >> var_name;
+            import(module_name, var_name);
         } else if (command == "return") {
             cout << "return" << endl;
             break;
