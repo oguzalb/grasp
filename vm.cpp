@@ -8,7 +8,7 @@ unsigned int bp;
 std::vector<Object *> locals;
 std::unordered_map<string, Object *> *builtins;
 std::unordered_map<string, Object *> *globals;
-
+std::unordered_map<string, Object *> imported_modules;
 Module *main_module;
 Bool *trueobject;
 Bool *falseobject;
@@ -177,18 +177,16 @@ Object *load_module(string module_name) {
 
 void import(string module_name, string var_name) {
     cout << module_name << "." << var_name << endl;
-    Object *module = getglobal(module_name);
-    if (module == NULL) {
+    Object *module;
+    if (imported_modules.find(module_name) == imported_modules.end()) {
         module = load_module(module_name);
         if (module == NULL)
             return;
+    } else {
+        module = imported_modules.at(var_name);
     }
-    if (module->type != module_type) {
-        string message = "global " + module_name + " is not a module";
-        newerror_internal(message);
-        return;
-    }
-    (*globals)[module_name] = module;
+    assert(module->type == module_type);
+    imported_modules[module_name] = module;
     Object *var = module->getfield(var_name);
     if (var == NULL) {
         string message = "Couldn't import " + var_name + " from " + module_name;
@@ -530,7 +528,6 @@ std::stringstream read_codes(string filename) {
     return ss;
 }
  
-
 void init_builtins(std::vector<std::string> *codes) {
     globals = new std::unordered_map<string, Object *>();
     init_builtin_func();

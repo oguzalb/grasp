@@ -14,6 +14,8 @@ void exc_str() {
 }
 
 void init_exception() {
-    exception_type = new Class("exception", NULL);
+    exception_type = new Class("Exception", newinstance);
     exception_type->setmethod("__str__", exc_str);
+    PUSH(exception_type);
+    setglobal("Exception");
 }

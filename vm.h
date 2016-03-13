@@ -44,4 +44,6 @@ void dump_codes(std::vector<std::string>& codes);
 std::stringstream read_codes(string filename);
 void dump_stack();
 void compile_file(string module_name);
+void setglobal(string name);
+void newinstance();
 #endif
