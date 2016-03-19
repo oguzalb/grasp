@@ -7,7 +7,7 @@ void exc_str() {
     Object *exc = POP_TYPE(Object, exception_type);
     Object *str = exc->getfield("message");
     if (str == NULL) {
-        newerror_internal("Exception should have message field");
+        newerror_internal("Exception should have message field", exception_type);
         return;
     }
     PUSH(str);

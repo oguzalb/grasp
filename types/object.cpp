@@ -37,6 +37,17 @@ Object *Object::getfield(string name) {
     return field;
 }
 
+int Object::isinstance(Object *type_to_check) {
+    Object *type;
+    Object *cls = this;
+    while (cls != NULL) {
+        if (cls->type == type_to_check)
+            return TRUE;
+        cls = cls->type;
+    }
+    return FALSE;
+}
+
 void __str__() {
     Object *o = POP();
     PUSH(new String(string("<") + string(o->type->type_name) + string(" object") + string(">")));

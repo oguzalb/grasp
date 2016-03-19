@@ -13,6 +13,8 @@ Module *main_module;
 Bool *trueobject;
 Bool *falseobject;
 Object *none;
+Class *assertion_error;
+Class *stop_iteration_error;
 Class *func_type;
 Class *builtinfunc_type;
 Class *none_type;
@@ -44,9 +46,9 @@ inline void PUSH(Object *x) {
 
 void call(std::vector<std::string>& codes, int param_count);
 
-void newerror_internal(string message) {
+void newerror_internal(string message, Class *type) {
     Object *e = new Object();
-    e->type = exception_type;
+    e->type = type;
     String *m = new String(message);
     e->setfield("message", m);
     PUSH(e);
@@ -112,11 +114,29 @@ cout << "field name type" << o1->type->type_name << endl;
 cout << "object type" << o2->type->type_name << endl;
     Object *field = o2->getfield(o1->sval);
     if (field == NULL) {
-        newerror_internal("Field not found");
+        newerror_internal("Field not found",exception_type);
         return;
     }
     PUSH(field);
     cout << "field pushed" << endl;
+}
+
+void isinstance_func() {
+    Object *type = POP();
+    Object *o = POP();
+    if (o->isinstance(type) == TRUE)
+        PUSH(trueobject);
+    else
+        PUSH(falseobject);
+}
+
+void assert_func() {
+    Object *result = POP_TYPE(Object, bool_type);
+    if (result == trueobject)
+        PUSH(none);
+    else {
+        newerror_internal("Assert failed", assertion_error);
+    }
 }
 
 void getmethod() {
@@ -127,7 +147,7 @@ cout << "object type:" << o2->type->type_name << endl;
     Object *field = o2->getfield(o1->sval);
     cout << "type: " << o2->type->type_name << endl;
     if (field == NULL) {
-        newerror_internal("Method not found");
+        newerror_internal("Method not found", exception_type);
         return;
     }
     assert(field->type == builtinfunc_type || field->type == func_type);
@@ -168,7 +188,7 @@ Object *load_module(string module_name) {
     ip = tmp_ip;
     globals = globals_tmp;
     if (gstack.size() > 0) {
-        if (TOP()->type == exception_type)
+        if (IS_EXCEPTION(TOP()))
             return NULL;
     }
     //dump_stack();
@@ -190,7 +210,7 @@ void import(string module_name, string var_name) {
     Object *var = module->getfield(var_name);
     if (var == NULL) {
         string message = "Couldn't import " + var_name + " from " + module_name;
-        newerror_internal(message);
+        newerror_internal(message, exception_type);
         return;
     }
     (*globals)[var_name] = module->getfield(var_name);
@@ -273,12 +293,12 @@ void loop(std::vector<std::string>& codes, int location) {
     call(codes, 1);
     Object *result = TOP();
 // stop iteration should have its type
-    if (result->type != exception_type) {
+    if (!result->isinstance(stop_iteration_error)) {
         // continue, might get filled
     } else {
         ip += location;
-        // pop the iterator and dummy none, not needed anymore
-        assert(POP()->type == exception_type);
+        // pop the exception and iterator, not needed anymore
+        POP();
         assert(POP() == it);
     }
 }
@@ -307,7 +327,7 @@ std::vector<std::string> *read_func_code(std::vector<std::string> &codes) {
 void call_str(Object *o) {
     Object *str_func = o->getfield("__str__");
     if (str_func == NULL) {
-        newerror_internal("does not have str");
+        newerror_internal("does not have str", exception_type);
         return;
     }
     PUSH(str_func);
@@ -330,7 +350,7 @@ cout << "print" << endl;
         cout << assert_type<Int *>(o, int_type)->ival << endl;
     else {
         call_str(o);
-        if (TOP()->type == exception_type) {
+        if (IS_EXCEPTION(TOP())) {
             return;
         }
         // TODO will be refactored
@@ -359,7 +379,7 @@ void interpret_block(std::vector<std::string> &codes) {
         if (command == "pop") {
             if (TOP()->type != none_type)
                 print_func();
-            if (TOP()->type != exception_type)
+            if (!IS_EXCEPTION(TOP()))
                 POP();
         } else if (command == "function") {
             string name;
@@ -466,7 +486,7 @@ void interpret_block(std::vector<std::string> &codes) {
         }
         if (gstack.size() > 0) {
             Object *exc = TOP();
-            if (exc->type == exception_type) {
+            if (IS_EXCEPTION(exc->type)) {
                 break;
             }
         }
@@ -486,7 +506,7 @@ void range_func() {
 void print_stack_trace() {
     if (gstack.size() > 0) {
         Object *exc = POP();
-        assert(exc->type == exception_type);
+        assert(IS_EXCEPTION(exc->type));
         PUSH(exc);
         print_func();
         POP();
@@ -498,6 +518,7 @@ void print_stack_trace() {
 void convert_codes(std::stringstream& fs, std::vector<std::string> &codes) {
     std::string line;
     int index;
+    int ip_start = codes.size();
     int temp_ip = ip;
     while (std::getline(fs, line)) {
         if ((index = line.find(":")) != string::npos) {
@@ -507,6 +528,7 @@ cout << "label:" << line.substr(0, index) << " index:" << temp_ip << endl;
         codes.push_back(line);
         temp_ip++;
     }
+    ip = ip_start;
 }
 
 void dump_codes(std::vector<std::string>& codes) {
@@ -537,15 +559,26 @@ void init_builtins(std::vector<std::string> *codes) {
     class_type->type = object_type;
     init_bool();
     init_exception();
+    stop_iteration_error = new Class("StopIterationError", NULL);
+    stop_iteration_error->type = exception_type;
+    (*globals)["StopIterationError"] = stop_iteration_error;
+    assertion_error = new Class("AssertionError", NULL);
+    assertion_error->type = exception_type;
+    (*globals)["AssertionError"] = assertion_error;
     init_int();
     init_function();
     init_string();
+    (*globals)["str"] = str_type;
     init_list();
     init_listiterator();
     BuiltinFunction *range = new BuiltinFunction(range_func);
     (*globals)["range"] = range;
+    BuiltinFunction *isinstance = new BuiltinFunction(isinstance_func);
+    (*globals)["isinstance"] = isinstance;
     BuiltinFunction *print = new BuiltinFunction(print_func);
     (*globals)["print"] = print;
+    BuiltinFunction *assert = new BuiltinFunction(assert_func);
+    (*globals)["assert"] = assert;
     none_type = new Class("NoneType", NULL);
     none = new Object();
     none->type = none_type;

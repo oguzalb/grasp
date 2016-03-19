@@ -36,7 +36,7 @@ int main (int argc, char *argv[]) {
     std::vector<std::string> codes;
     init_builtins(&codes);
     string code;
-    while (1){
+    while (1) {
         string line;
         cout << ">>";
         code = "";
@@ -52,7 +52,8 @@ int main (int argc, char *argv[]) {
         dump_codes(codes);
         interpret_block(codes);
         if (gstack.size() > 0) {
-            Object *exc = POP_TYPE(Object, exception_type);
+            Object *exc = POP();
+            assert(exc->isinstance(exception_type));
         }
     };
     return 0;

@@ -2,6 +2,7 @@
 #include "../vm.h"
 
 extern Class *listiterator_type;
+extern Class *stop_iteration_error;
 
 ListIterator::ListIterator(std::vector<Object *> *list) {
     this->it = new std::vector<Object *>::iterator(list->begin());
@@ -21,8 +22,7 @@ assert(it_obj->type == listiterator_type);
         (*it_obj->it)++;
         PUSH(element);
     } else {
-        // TODO when exception types implemented
-        newerror_internal("STOP ITERATION!!!");
+        newerror_internal("STOP ITERATION!!!", stop_iteration_error);
     }
 }
 

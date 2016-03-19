@@ -13,6 +13,7 @@ class Object {
     void setfield(string name, Object* object);
     void setmethod(string name, void(*function)());
     Object *getfield(string name);
+    int isinstance(Object *type);
     Class *type;
 };
 
