@@ -506,7 +506,7 @@ void range_func() {
 void print_stack_trace() {
     if (gstack.size() > 0) {
         Object *exc = POP();
-        assert(IS_EXCEPTION(exc->type));
+        assert(IS_EXCEPTION(exc));
         PUSH(exc);
         print_func();
         POP();
