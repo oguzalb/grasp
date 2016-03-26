@@ -13,5 +13,8 @@ for i in range(10)
     print(i)
 i = 4
 count(4)
+try
+    i.nonexistent_field
+catch
+    print("catched")
 return Exception()
-i.nonexistent_field

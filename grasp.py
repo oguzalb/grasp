@@ -54,6 +54,8 @@ class Parser():
             "jmp": 1,
             "loop": 1,
             "function": 1,
+            "trap": 1,
+            "catch": 1
         }
         new_code_lines = []
         for i, line in enumerate(code_lines):
@@ -258,6 +260,7 @@ def exprstmt_action(parser, tokens):
     return tokens
 funcdef = Forward()
 # return is first, expr can get return as identifier!!!
+trystmt = Forward()
 primitivestmt = (
     returnexpr | importstmt |
     raisestmt | exprstmt) + Literal("\n")
@@ -450,7 +453,27 @@ def classstmt_process(children, parser):
 
 classstmt.process = classstmt_process
 
-stmt << (namedfuncdef | simpleassgmt | fieldassgmt | primitivestmt |
+trystmt << (
+    Literal('try') + Literal('\n') + IndentedBlock(stmt) +
+    Literal('catch') + Literal('\n') + IndentedBlock(stmt))
+
+
+def trystmt_process(children, parser):
+    try_end_label = parser.new_label()
+    parser.add_instruction("trap %s" % try_end_label)
+    children[0][0][2].process(children[0][0][2], parser)
+    parser.set_next_label(try_end_label)
+    catch_end_label = parser.new_label()
+    parser.add_instruction("catch %s" % catch_end_label)
+    children[0][0][5].process(children[0][0][5], parser)
+    parser.set_next_label(catch_end_label)
+    # TODO multiple catch when catch type added
+    return []
+
+trystmt.process = trystmt_process
+
+
+stmt << (namedfuncdef | simpleassgmt | fieldassgmt | trystmt | primitivestmt |
          ifstmt | forstmt | classstmt | Regex('\s+'))
 
 
