@@ -55,7 +55,8 @@ class Parser():
             "loop": 1,
             "function": 1,
             "trap": 1,
-            "catch": 1
+            "onerr": 1,
+            "pop_trap_jmp": 1
         }
         new_code_lines = []
         for i, line in enumerate(code_lines):
@@ -196,9 +197,10 @@ def getitem_process(children, parser):
     return results
 
 getitem.process = getitem_process
+functionmethodcall = (trailerwithcall | trailerwithoutcall | funccall)
 # TODO should be fixed using postfix or sth
 trailer = atom + Optional(accessor) + Optional(
-    trailerwithcall | trailerwithoutcall | funccall | getitem
+    functionmethodcall | getitem
 )
 
 
@@ -260,7 +262,6 @@ def exprstmt_action(parser, tokens):
     return tokens
 funcdef = Forward()
 # return is first, expr can get return as identifier!!!
-trystmt = Forward()
 primitivestmt = (
     returnexpr | importstmt |
     raisestmt | exprstmt) + Literal("\n")
@@ -453,27 +454,31 @@ def classstmt_process(children, parser):
 
 classstmt.process = classstmt_process
 
-trystmt << (
-    Literal('try') + Literal('\n') + IndentedBlock(stmt) +
-    Literal('catch') + Literal('\n') + IndentedBlock(stmt))
+onerrstmt = (
+    Literal("try") + Literal("\n") + IndentedBlock(stmt) +
+    Literal("catch") + Word() + Literal('\n') +
+    IndentedBlock(stmt))
 
 
-def trystmt_process(children, parser):
-    try_end_label = parser.new_label()
-    parser.add_instruction("trap %s" % try_end_label)
-    children[0][0][2].process(children[0][0][2], parser)
-    parser.set_next_label(try_end_label)
-    catch_end_label = parser.new_label()
-    parser.add_instruction("catch %s" % catch_end_label)
-    children[0][0][5].process(children[0][0][5], parser)
-    parser.set_next_label(catch_end_label)
+def onerrstmt_process(children, parser):
+    trap_end_label = parser.new_label()
+    parser.add_instruction("trap %s" % trap_end_label)
+    children[0][2].process(children[0][2], parser)
+    onerr_end_label = parser.new_label()
+    # this will be the ultimate_end_onerr_label
+    parser.add_instruction("pop_trap_jmp %s" % onerr_end_label)
+    parser.add_instruction("onerr %s" % onerr_end_label)
+    parser.set_next_label(trap_end_label)
+    children[0][6].process(children[0][6], parser)
+    parser.set_next_label(onerr_end_label)
     # TODO multiple catch when catch type added
+    # TODO multiple catch means each end needs to jump to ultimate end
     return []
 
-trystmt.process = trystmt_process
+onerrstmt.process = onerrstmt_process
 
-
-stmt << (namedfuncdef | simpleassgmt | fieldassgmt | trystmt | primitivestmt |
+stmt << (namedfuncdef | simpleassgmt | fieldassgmt |
+         onerrstmt | primitivestmt |
          ifstmt | forstmt | classstmt | Regex('\s+'))
 
 

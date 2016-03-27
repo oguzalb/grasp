@@ -14,7 +14,11 @@ for i in range(10)
 i = 4
 count(4)
 try
-    i.nonexistent_field
-catch
-    print("catched")
-return Exception()
+    person.hello
+catch KeyErr
+    print("nonexistent field")
+print("first field access successful")
+try
+    person.nonexistent_field
+catch KeyErr
+    print("nonexistent field")

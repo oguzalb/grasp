@@ -6,6 +6,7 @@ unsigned int ip;
 std::vector<Object *> gstack;
 unsigned int bp;
 std::vector<Object *> locals;
+std::vector<int> *traps;
 std::unordered_map<string, Object *> *builtins;
 std::unordered_map<string, Object *> *globals;
 std::unordered_map<string, Object *> imported_modules;
@@ -245,10 +246,25 @@ void pushlocal(unsigned int ival) {
 
 void interpret_block(std::vector<std::string>& codes);
 
+void trap(int location) {
+    traps->push_back(ip+location);
+}
+
+void onerr(int location) {
+    // TODO if it is assignment we have a problem!!!
+    Object* o = POP();
+    if (!IS_EXCEPTION(o)) {
+        ip += location - 1;
+    }
+    // TODO set the err
+}
+
 void call(std::vector<std::string>& codes, int param_count) {
     // TODO stuff about param_count
     int size_before = gstack.size();
     int bp_temp = bp;
+    std::vector<int> *tmp_traps = traps;
+    std::vector<int> *traps = new std::vector<int>();
     bp = gstack.size() - param_count;
     Object *callable = GETFUNC();
     // TODO exc
@@ -277,6 +293,8 @@ void call(std::vector<std::string>& codes, int param_count) {
         cout << callable->type->type_name << endl;
         assert(FALSE);
     }
+    delete traps;
+    traps = tmp_traps;
     bp = bp_temp;
     int size_after = gstack.size();
     //cout << size_before << ":" << size_after + param_count << endl;
@@ -467,11 +485,29 @@ void interpret_block(std::vector<std::string> &codes) {
 // TODO check
             cout << "jmp " << location << endl;
             ip += location-1; // will increase at the end of loop
+        } else if (command == "pop_trap_jmp") {
+            traps->pop_back();
+// TODO this instruction will be reconsidered
+            int location;
+            ss >> location;
+// TODO check
+            cout << "pop_trap_jmp " << location << endl;
+            ip += location-1; // will increase at the end of loop
         } else if (command == "loop"){
             int location;
             ss >> location;
             cout << "loop " << location << endl;
             loop(codes, location);
+        } else if (command == "trap"){
+            int location;
+            ss >> location;
+            cout << "trap " << location << endl;
+            trap(location);
+        } else if (command == "onerr"){
+            int location;
+            ss >> location;
+            cout << "onerr " << location << endl;
+            onerr(location);
         } else if (command == "jnt") {
             int location;
             ss >> location;
@@ -486,7 +522,13 @@ void interpret_block(std::vector<std::string> &codes) {
         }
         if (gstack.size() > 0) {
             Object *exc = TOP();
-            if (IS_EXCEPTION(exc->type)) {
+            if (IS_EXCEPTION(exc)) {
+                if (traps->size() > 0) {
+                    int location = traps->back();
+                    traps->pop_back();
+                    ip = location-1;
+                    continue;
+                }
                 break;
             }
         }
@@ -552,6 +594,7 @@ std::stringstream read_codes(string filename) {
  
 void init_builtins(std::vector<std::string> *codes) {
     globals = new std::unordered_map<string, Object *>();
+    traps = new std::vector<int>();
     init_builtin_func();
     // TODO new instance functions should be implemented
     init_object();
