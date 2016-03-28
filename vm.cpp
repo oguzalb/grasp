@@ -343,6 +343,10 @@ std::vector<std::string> *read_func_code(std::vector<std::string> &codes) {
 }
 
 void call_str(Object *o) {
+    if (o->type == str_type) {
+        PUSH(o);
+        return;
+    }
     Object *str_func = o->getfield("__str__");
     if (str_func == NULL) {
         newerror_internal("does not have str", exception_type);
@@ -358,6 +362,8 @@ void call_str(Object *o) {
 void dummy () {
     // TODO something went wrong with compilation of this guy and i don't know why, will be fixed
     assert_type<Object *>(NULL, NULL);
+    POP_TYPE(String, str_type);
+    POP_TYPE(List, NULL);
 }
 void print_func() {
 cout << "print" << endl;
@@ -592,7 +598,7 @@ std::stringstream read_codes(string filename) {
     return ss;
 }
  
-void init_builtins(std::vector<std::string> *codes) {
+void init_builtins(std::vector<std::string> *codes, int argc, char *argv[], char *env[]) {
     globals = new std::unordered_map<string, Object *>();
     traps = new std::vector<int>();
     init_builtin_func();
@@ -630,6 +636,19 @@ void init_builtins(std::vector<std::string> *codes) {
     globals = new std::unordered_map<string, Object *>();
     init_module();
     main_module = new Module(codes);
+    Module *sys_module = new Module(NULL);
+    (*globals)["sys"] = sys_module;
+    Int *o_argc = new Int(argc);
+    sys_module->setfield("argc", o_argc);
+    List *o_argv = new List();
+    for (int i=0; i < argc; i++)
+        o_argv->list->push_back(new String(argv[i]));
+    sys_module->setfield("argv", o_argv);
+    List *o_env = new List();
+    while (*env != NULL)
+        o_env->list->push_back(new String(*(env++)));
+    sys_module->setfield("env", o_env);
+    
 }
 
 void compile_file(string module_name) {

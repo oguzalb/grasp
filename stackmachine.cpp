@@ -1,7 +1,7 @@
 #include "vm.h"
 #include "string.h"
 
-int main (int argc, char *argv[]) {
+int main (int argc, char *argv[], char *env[]) {
     if (argc != 2) {
         cerr << "Needs file as an argument" << endl;
         return 1;
@@ -13,7 +13,7 @@ int main (int argc, char *argv[]) {
     }
     std::stringstream ss = read_codes(sourcefilename);
     std::vector<std::string> *codes = new std::vector<std::string>();
-    init_builtins(codes);
+    init_builtins(codes, argc, argv, env);
     convert_codes(ss, *codes);
     interpret_block(*codes);
     print_stack_trace();

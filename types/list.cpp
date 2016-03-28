@@ -3,6 +3,9 @@
 
 extern Class *list_type;
 extern Class *listiterator_type;
+extern std::vector<Object *> gstack;
+extern Object *exception_type;
+extern Class *str_type;
 
 List::List() {
     this->type = list_type;
@@ -19,7 +22,24 @@ void list_iter() {
     PUSH(it_obj);
 }
 
+void list_str() {
+    List *self = POP_TYPE(List, list_type);
+    string result = "[";
+    for (int i=0; i< self->list->size(); i++) {
+        // TODO concurrency check later
+        call_str(self->list->at(i));
+        Object *exc = TOP();
+        if (IS_EXCEPTION(exc))
+            return;
+        String *str_repr = POP_TYPE(String, str_type);
+        result += str_repr->sval + ", ";
+    }
+    result += "]";
+    PUSH(new String(result));
+}
+
 void init_list() {
     list_type = new Class("list", NULL);
     list_type->setmethod("iter", list_iter);
+    list_type->setmethod("__str__", list_str);
 }

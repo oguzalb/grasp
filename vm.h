@@ -24,15 +24,15 @@ using namespace std;
 #define GETLOCAL(x) (gstack[bp+x])
 #define GETFUNC() (gstack.at(bp-1))
 #define LOCALSIZE() (gstack.size()-bp)
-#define POP_TYPE(type, class_object) assert_type<type *>(POP(), class_object)
+#define POP_TYPE(type, class_object) (assert_type<type *>(POP(), class_object))
 #define TOP() gstack.back()
-#define IS_EXCEPTION(type) type->isinstance(exception_type)
+#define IS_EXCEPTION(type) (type->isinstance(exception_type))
 
 
 #define TRUE 1
 #define FALSE 0
 
-void init_builtins(std::vector<string> *codes);
+void init_builtins(std::vector<string> *codes, int argc, char *argv[], char *env[]);
 void interpret_block(std::vector<std::string>& codes);
 void convert_codes(std::stringstream& fs, std::vector<std::string> &codes);
 bool ends_with(const string& s, const string& ending);
@@ -48,4 +48,5 @@ void dump_stack();
 void compile_file(string module_name);
 void setglobal(string name);
 void newinstance();
+void call_str(Object *o);
 #endif

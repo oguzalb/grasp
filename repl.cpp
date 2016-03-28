@@ -32,9 +32,9 @@ std::stringstream compile(string code) {
    return ss;
 }
 
-int main (int argc, char *argv[]) {
+int main (int argc, char *argv[], char *env[]) {
     std::vector<std::string> codes;
-    init_builtins(&codes);
+    init_builtins(&codes, argc, argv, env);
     string code;
     while (1) {
         string line;
