@@ -650,7 +650,9 @@ void init_builtins(std::vector<std::string> *codes, int argc, char *argv[], char
         char *saveptr;
         char *key = strtok_r(*env, "=", &saveptr);
         char *val = strtok_r(NULL, "\0", &saveptr);
-        o_env->dict->insert(std::make_pair(new String(key), new String(val)));
+        if (val == NULL)
+            val = "";
+        o_env->insert(new String(key), new String(val));
         env++;
     }
     sys_module->setfield("env", o_env);

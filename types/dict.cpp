@@ -3,12 +3,62 @@
 
 extern Class *dict_type;
 extern std::vector<Object *> gstack;
-extern Object *exception_type;
+extern Class *exception_type;
 extern Class *str_type;
+extern Class *int_type;
+extern Class *func_type;
+extern Class *builtinfunc_type;
+extern Object *trueobject;
+
+class Hasher
+{
+public:
+  size_t operator() (Object *key) const
+  {
+    Object *hash_func = key->getfield("__hash__");
+    if (hash_func == NULL) {
+        //newerror_internal("does not have str", exception_type);
+// TODO when dict is rewritten this should return an exception
+        return false;
+    }
+    PUSH(hash_func);
+    PUSH(key);
+    assert(hash_func->type == func_type || hash_func->type == builtinfunc_type);
+    Function *func = static_cast<Function *>(hash_func);
+    call(func->codes, 1);
+    Int *hash = POP_TYPE(Int, int_type);
+    return std::hash<int>()(hash->ival);
+  }
+};
+
+class EqualFn
+{
+public:
+  bool operator() (Object *o1, Object *o2) const
+  {
+    Object *eq_func = o1->getfield("__equals__");
+    if (eq_func == NULL) {
+        //newerror_internal("does not have str", exception_type);
+// TODO when dict is rewritten this should return an exception
+        return false;
+    }
+    PUSH(eq_func);
+    PUSH(o1);
+    PUSH(o2);
+    assert(eq_func->type == func_type || eq_func->type == builtinfunc_type);
+    Function *func = static_cast<Function *>(eq_func);
+    call(func->codes, 2);
+    return POP() == trueobject;
+  }
+};
 
 Dict::Dict() {
     this->type = dict_type;
-    this->dict = new std::unordered_map<Object *, Object *>();
+    this->dict = new std::unordered_map<Object *, Object *, Hasher, EqualFn>();
+}
+
+void Dict::insert(Object *key, Object *val) {
+    this->dict->insert({key, val});
 }
 
 void dict_str() {
@@ -33,7 +83,20 @@ void dict_str() {
     PUSH(new String(result));
 }
 
+void dict_getitem() {
+    Object *key = POP();
+    Dict *self = POP_TYPE(Dict, dict_type);
+    try {
+        Object *val = self->dict->at(key);
+        PUSH(val);
+    } catch (const std::out_of_range& oor) {
+        cout << "no field in dict" << endl;
+        newerror_internal("KeyError", exception_type);
+   }
+}
+
 void init_dict() {
     dict_type = new Class("dict", NULL);
     dict_type->setmethod("__str__", dict_str);
+    dict_type->setmethod("__getitem__", dict_getitem);
 }

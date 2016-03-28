@@ -20,6 +20,12 @@ void int_equals() {
     }
 }
 
+void int_hash() {
+    Int *self = POP_TYPE(Int, int_type);
+    // TODO exc
+    PUSH(new Int(std::hash<int>()(self->ival)));
+}
+
 void int_add() {
     Int *o1 = POP_TYPE(Int, int_type);
     Int *o2 = POP_TYPE(Int, int_type);
@@ -55,4 +61,5 @@ void init_int() {
     int_type->setmethod("__mul__", int_mul);
     int_type->setmethod("__div__", int_div);
     int_type->setmethod("__equals__", int_equals);
+    int_type->setmethod("__hash__", int_hash);
 }

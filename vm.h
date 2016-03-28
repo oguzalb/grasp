@@ -51,4 +51,5 @@ void compile_file(string module_name);
 void setglobal(string name);
 void newinstance();
 void call_str(Object *o);
+void call(std::vector<std::string>& codes, int count);
 #endif
