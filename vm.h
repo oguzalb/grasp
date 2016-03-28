@@ -45,7 +45,7 @@ template<typename T> T assert_type(Object *o, Class *type);
 void newerror_internal(string message, Class *type);
 void print_stack_trace();
 void dump_codes(std::vector<std::string>& codes);
-std::stringstream read_codes(string filename);
+std::stringstream *read_codes(string filename);
 void dump_stack();
 void compile_file(string module_name);
 void setglobal(string name);

@@ -189,11 +189,13 @@ inline Object *getglobal(string name) {
 
 Object *load_module(string module_name) {
     compile_file(module_name);
-    std::stringstream ss = read_codes(module_name + string(".graspo"));
+    string extension = ".graspo";
+    std::stringstream *ss = read_codes(module_name + extension);
     Module *module = new Module(new std::vector<string>());
     std::unordered_map<string, Object *> *globals_tmp = globals;
     globals = &module->fields;
-    convert_codes(ss, *module->codes);
+    convert_codes(*ss, *module->codes);
+    delete ss;
     int tmp_ip = ip;
     ip = 0;
     interpret_block(*module->codes);
@@ -599,13 +601,13 @@ void dump_codes(std::vector<std::string>& codes) {
     }
 }
 
-std::stringstream read_codes(string filename) {
+std::stringstream *read_codes(string filename) {
     std::fstream fs;
     fs.open(filename, std::fstream::in);
-    std::stringstream ss;
+    std::stringstream *ss = new std::stringstream;
     copy(istreambuf_iterator<char>(fs),
      istreambuf_iterator<char>(),
-     ostreambuf_iterator<char>(ss));
+     ostreambuf_iterator<char>(*ss));
     return ss;
 }
  
