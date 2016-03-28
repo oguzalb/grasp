@@ -262,8 +262,11 @@ def exprstmt_action(parser, tokens):
     return tokens
 funcdef = Forward()
 # return is first, expr can get return as identifier!!!
+
+comment = Regex("#[^\n]+")
+
 primitivestmt = (
-    returnexpr | importstmt |
+    comment | returnexpr | importstmt |
     raisestmt | exprstmt) + Literal("\n")
 exprstmt.set_action(exprstmt_action)
 rightvalue = Group(andexpr)
