@@ -3,7 +3,8 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
-#include <string>
+#include <cstring>
+#include <cstdio>
 #include <stack>
 #include <vector>
 #include <unordered_map>
@@ -19,6 +20,7 @@ using namespace std;
 #include "types/function.h"
 #include "types/list_iterator.h"
 #include "types/list.h"
+#include "types/dict.h"
 #include "types/exception.h"
 
 #define GETLOCAL(x) (gstack[bp+x])

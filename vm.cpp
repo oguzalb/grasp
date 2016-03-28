@@ -1,7 +1,6 @@
 #include "vm.h"
 #include "assert.h"
 
-
 unsigned int ip;
 std::vector<Object *> gstack;
 unsigned int bp;
@@ -22,6 +21,7 @@ Class *none_type;
 Class *bool_type;
 Class *str_type;
 Class *list_type;
+Class *dict_type;
 Class *listiterator_type;
 Class *exception_type;
 Class *class_type;
@@ -364,9 +364,9 @@ void dummy () {
     assert_type<Object *>(NULL, NULL);
     POP_TYPE(String, str_type);
     POP_TYPE(List, NULL);
+    POP_TYPE(Dict, NULL);
 }
 void print_func() {
-cout << "print" << endl;
     Object *o= POP();
     if (o->type == str_type)
         cout << assert_type<String *>(o, str_type)->sval << endl;
@@ -619,6 +619,7 @@ void init_builtins(std::vector<std::string> *codes, int argc, char *argv[], char
     init_string();
     (*globals)["str"] = str_type;
     init_list();
+    init_dict();
     init_listiterator();
     BuiltinFunction *range = new BuiltinFunction(range_func);
     (*globals)["range"] = range;
@@ -644,9 +645,14 @@ void init_builtins(std::vector<std::string> *codes, int argc, char *argv[], char
     for (int i=0; i < argc; i++)
         o_argv->list->push_back(new String(argv[i]));
     sys_module->setfield("argv", o_argv);
-    List *o_env = new List();
-    while (*env != NULL)
-        o_env->list->push_back(new String(*(env++)));
+    Dict *o_env = new Dict();
+    while (*env != NULL) {
+        char *saveptr;
+        char *key = strtok_r(*env, "=", &saveptr);
+        char *val = strtok_r(NULL, "\0", &saveptr);
+        o_env->dict->insert(std::make_pair(new String(key), new String(val)));
+        env++;
+    }
     sys_module->setfield("env", o_env);
     
 }
