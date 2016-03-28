@@ -84,7 +84,18 @@ void newclass_internal() {
     PUSH(c);
 }
 
+void replace_all(std::string& str, const std::string& from, const std::string& to) {
+    if(from.empty())
+        return;
+    size_t start_pos = 0;
+    while((start_pos = str.find(from, start_pos)) != std::string::npos) {
+        str.replace(start_pos, from.length(), to);
+        start_pos += to.length();
+    }
+}
+
 void newstr(string sval) {
+    replace_all(sval, "\\n", "\n");
     String *o = new String(sval);
     cout << "newstr: " << sval << endl;
     PUSH(o);
