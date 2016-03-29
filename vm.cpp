@@ -585,11 +585,12 @@ void print_stack_trace() {
 
 void convert_codes(std::stringstream& fs, std::vector<std::string> &codes) {
     std::string line;
-    int index;
     int ip_start = codes.size();
     int temp_ip = ip;
     while (std::getline(fs, line)) {
-        if ((index = line.find(":")) != string::npos) {
+        int index = line.find(":");
+        int space_index = line.find(" ");
+        if (index != string::npos && index < space_index) {
 cerr << "label:" << line.substr(0, index) << " index:" << temp_ip << endl;
             line = line.substr(index+1);
         }
