@@ -24,12 +24,12 @@ Object *Object::getfield(string name) {
         Class *type = this->type;
         while (type != NULL) {
             try {
-                cout << "searching " << name << " in " << type->type_name << endl;
+                cerr << "searching " << name << " in " << type->type_name << endl;
                 field = type->fields.at(name);
-                cout << "getfield type " << type->type_name << endl;
+                cerr << "getfield type " << type->type_name << endl;
                 break;
             } catch (const std::out_of_range& oor) {
-                cout << "no field" << name << " " << type->type_name << endl;
+                cerr << "no field" << name << " " << type->type_name << endl;
             }
             type = type->type;
         }

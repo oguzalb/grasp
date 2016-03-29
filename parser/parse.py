@@ -1,8 +1,13 @@
 import re
+import sys
 # TODO Optional doesn't increase
 # the cursor but shouldn't keep Atoms like
 # Postfix to continue working, fixed
 # but should be reconsidered
+
+
+def printerr(msg):
+    sys.stderr.write(msg)
 
 
 class ParseError(Exception):
@@ -61,7 +66,7 @@ class Token(object):
         self.action = None
 
     def parse_string(self, parser, text):
-        print text
+        printerr(str(text))
         tokens, i = self.parse(text, 0)
         if len(text) != i:
             raise ParseError("Not finished %s, rest: %s" % (i, text[i:]), i)

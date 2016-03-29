@@ -535,6 +535,6 @@ if __name__ == "__main__":
     parser = Parser()
     main.parse_string(parser, code)
     outputfilename = filename + 'o' if filename else "repl.graspo"
-    print parser
+    printerr(str(parser))
     with open(outputfilename, 'w') as outputf:
         outputf.write(parser.dumpcode())

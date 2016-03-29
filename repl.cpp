@@ -6,6 +6,7 @@
 extern std::vector<Object *> gstack;
 extern Class *exception_type;
 extern string main_path;
+extern bool repl;
 
 std::stringstream compile(string code) {
    FILE *fpipe;
@@ -44,6 +45,7 @@ std::string get_working_path()
 }
 
 int main (int argc, char *argv[], char *env[]) {
+    repl = true;
     std::vector<std::string> codes;
     main_path = get_working_path();
     init_builtins(&codes, argc, argv, env);

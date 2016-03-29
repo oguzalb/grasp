@@ -30,6 +30,8 @@ Class *int_type;
 Class *object_type;
 Class *module_type;
 
+bool repl = false;
+
 template<typename T> T assert_type(Object *o, Class *type)
 {
     assert(o->type == type);
@@ -62,20 +64,20 @@ void newinstance() {
     Class *c = static_cast<Class *>(co);
     Object *o = new Object();
     o->type = c;
-cout << "newinstance" << endl;
+cerr << "newinstance" << endl;
 // TODO CHECK
     Function* f = static_cast<Function *>(o->getfield("__init__"));
     if (f != NULL) {
         int localsize = LOCALSIZE();
         PUSH(f);
         PUSH(o);
-        cout << "localsize:" << localsize << endl;
+        cerr << "localsize:" << localsize << endl;
         for (int i=0; i<localsize; i++)
             PUSH(GETLOCAL(i));
         call(f->codes, 1 + localsize);
         POP();
         POP();
-    cout << "__init__" << endl;
+    cerr << "__init__" << endl;
     }
     PUSH(o);
 }
@@ -98,7 +100,7 @@ void replace_all(std::string& str, const std::string& from, const std::string& t
 void newstr(string sval) {
     replace_all(sval, "\\n", "\n");
     String *o = new String(sval);
-    cout << "newstr: " << sval << endl;
+    cerr << "newstr: " << sval << endl;
     PUSH(o);
 }
 
@@ -117,21 +119,21 @@ void setfield() {
     String *s = POP_TYPE(String, str_type);
     Object *o3 = POP();
     o3->setfield(s->sval, o1);
-    cout << "field set: " << s->sval << endl;
+    cerr << "field set: " << s->sval << endl;
 }
 
 void getfield() {
     String *o1 = POP_TYPE(String, str_type);
-cout << "field name type" << o1->type->type_name << endl;
+cerr << "field name type" << o1->type->type_name << endl;
     Object *o2 = POP();
-cout << "object type" << o2->type->type_name << endl;
+cerr << "object type" << o2->type->type_name << endl;
     Object *field = o2->getfield(o1->sval);
     if (field == NULL) {
         newerror_internal("Field not found",exception_type);
         return;
     }
     PUSH(field);
-    cout << "field pushed" << endl;
+    cerr << "field pushed" << endl;
 }
 
 void isinstance_func() {
@@ -154,11 +156,11 @@ void assert_func() {
 
 void getmethod() {
     String *o1 = POP_TYPE(String, str_type);
-cout << "field name type:" << o1->type->type_name << endl;
+cerr << "field name type:" << o1->type->type_name << endl;
     Object *o2 = POP();
-cout << "object type:" << o2->type->type_name << endl;
+cerr << "object type:" << o2->type->type_name << endl;
     Object *field = o2->getfield(o1->sval);
-    cout << "type: " << o2->type->type_name << endl;
+    cerr << "type: " << o2->type->type_name << endl;
     if (field == NULL) {
         newerror_internal("Method not found", exception_type);
         return;
@@ -166,7 +168,7 @@ cout << "object type:" << o2->type->type_name << endl;
     assert(field->type == builtinfunc_type || field->type == func_type);
     PUSH(field);
     PUSH(o2);
-    cout << "field pushed type " << field->type->type_name << endl;
+    cerr << "field pushed type " << field->type->type_name << endl;
 }
 
 void setglobal(string name) {
@@ -215,7 +217,7 @@ Object *load_module(string module_name) {
 }
 
 void import(string module_name, string var_name) {
-    cout << module_name << "." << var_name << endl;
+    cerr << module_name << "." << var_name << endl;
     Object *module;
     if (imported_modules.find(module_name) == imported_modules.end()) {
         module = load_module(module_name);
@@ -258,7 +260,7 @@ void pushlocal(unsigned int ival) {
         exit(1);
     }
     gstack.push_back(GETLOCAL(ival));
-    cout << "pushed type " << TOP()->type->type_name << endl;
+    cerr << "pushed type " << TOP()->type->type_name << endl;
 }
 
 
@@ -302,20 +304,20 @@ void call(std::vector<std::string>& codes, int param_count) {
         BuiltinFunction *func = static_cast<BuiltinFunction *>(callable);
         func->function();
         Object *result = POP();
-        cout << "returned " << result->type->type_name << endl;
+        cerr << "returned " << result->type->type_name << endl;
 // builtin funcs consume the parameters
         BuiltinFunction* func_after = static_cast<BuiltinFunction *>(POP());
         assert(func_after == func);
         PUSH(result);
     } else {
-        cout << callable->type->type_name << endl;
+        cerr << callable->type->type_name << endl;
         assert(FALSE);
     }
     delete traps;
     traps = tmp_traps;
     bp = bp_temp;
     int size_after = gstack.size();
-    //cout << size_before << ":" << size_after + param_count << endl;
+    //cerr << size_before << ":" << size_after + param_count << endl;
     assert(size_before == size_after + param_count);
 } 
 
@@ -342,7 +344,7 @@ void loop(std::vector<std::string>& codes, int location) {
 void swp() {
     Object *o1 = POP();
     Object *o2 = POP();
-    cout << "swapping " <<  o1->type->type_name << " with " << o2->type->type_name << endl;
+    cerr << "swapping " <<  o1->type->type_name << " with " << o2->type->type_name << endl;
     PUSH(o1);
     PUSH(o2);
 }
@@ -403,12 +405,12 @@ void print_func() {
 }
 
 void dump_stack() {
-    cout << "bp: " << bp << endl;
+    cerr << "bp: " << bp << endl;
     for (int i=0; i < gstack.size(); i++) {
         Object *o = gstack.at(i);
         if (o == NULL)
-            cout << "UNBOUND" << endl;
-        cout << o->type->type_name << endl;
+            cerr << "UNBOUND" << endl;
+        cerr << o->type->type_name << endl;
     }
 }
 
@@ -419,7 +421,7 @@ void interpret_block(std::vector<std::string> &codes) {
         std::stringstream ss(codes[ip]);
         ss >> command;
         if (command == "pop") {
-            if (TOP()->type != none_type)
+            if (TOP()->type != none_type && repl)
                 print_func();
             if (!IS_EXCEPTION(TOP()))
                 POP();
@@ -431,10 +433,10 @@ void interpret_block(std::vector<std::string> &codes) {
             int locals_count;
             ss >> locals_count;
             // TODO sanity check
-            cout << "function code read " << startp << endl;
+            cerr << "function code read " << startp << endl;
 // TODO
             newfunc(codes, ip + startp, name, locals_count);
-            cout << "next: " << codes[ip+startp] << endl;
+            cerr << "next: " << codes[ip+startp] << endl;
         } else if (command == "int") {
             int ival;
             ss >> ival;
@@ -449,65 +451,65 @@ void interpret_block(std::vector<std::string> &codes) {
         } else if (command == "call") {
             int count;
             ss >> count;
-            cout << "call " << count <<endl;
+            cerr << "call " << count <<endl;
             call(codes, count);
 // TODO check
         } else if (command == "class") {
-            cout << "class " << endl;
+            cerr << "class " << endl;
             newclass_internal();
 // TODO check
         } else if (command == "import") {
-            cout << "import" << endl;
+            cerr << "import" << endl;
             string module_name;
             ss >> module_name;
             string var_name;
             ss >> var_name;
             import(module_name, var_name);
         } else if (command == "return") {
-            cout << "return" << endl;
+            cerr << "return" << endl;
             break;
 // TODO check
         } else if (command == "pushlocal") {
             unsigned int lindex;
             ss >> lindex;
 // TODO check
-            cout << "pushlocal " << lindex << endl;
+            cerr << "pushlocal " << lindex << endl;
             pushlocal(lindex);
         } else if (command == "pushglobal") {
             string name;
             ss >> name;
 // TODO check
-            cout << "pushglobal " << name << endl;
+            cerr << "pushglobal " << name << endl;
             pushglobal(name);
         } else if (command == "setlocal") {
             int lindex;
             ss >> lindex;
-            cout << "setlocal " << lindex << endl;
+            cerr << "setlocal " << lindex << endl;
             setlocal(lindex);
         } else if (command == "setglobal") {
             string name;
             ss >> name;
-            cout << "setglobal " << name << endl;
+            cerr << "setglobal " << name << endl;
             setglobal(name);
         } else if (command == "swp") {
-            cout << "swp" << endl;
+            cerr << "swp" << endl;
             swp();
         } else if (command == "nop") {
-            cout << "nop" << endl;
+            cerr << "nop" << endl;
         } else if (command == "getfield") {
-            cout << "getfield" << endl;
+            cerr << "getfield" << endl;
             getfield();
         } else if (command == "setfield") {
-            cout << "setfield" << endl;
+            cerr << "setfield" << endl;
             setfield();
         } else if (command == "getmethod") {
-            cout << "getmethod" << endl;
+            cerr << "getmethod" << endl;
             getmethod();
         } else if (command == "jmp") {
             int location;
             ss >> location;
 // TODO check
-            cout << "jmp " << location << endl;
+            cerr << "jmp " << location << endl;
             ip += location-1; // will increase at the end of loop
         } else if (command == "pop_trap_jmp") {
             traps->pop_back();
@@ -515,28 +517,28 @@ void interpret_block(std::vector<std::string> &codes) {
             int location;
             ss >> location;
 // TODO check
-            cout << "pop_trap_jmp " << location << endl;
+            cerr << "pop_trap_jmp " << location << endl;
             ip += location-1; // will increase at the end of loop
         } else if (command == "loop"){
             int location;
             ss >> location;
-            cout << "loop " << location << endl;
+            cerr << "loop " << location << endl;
             loop(codes, location);
         } else if (command == "trap"){
             int location;
             ss >> location;
-            cout << "trap " << location << endl;
+            cerr << "trap " << location << endl;
             trap(location);
         } else if (command == "onerr"){
             int location;
             ss >> location;
-            cout << "onerr " << location << endl;
+            cerr << "onerr " << location << endl;
             onerr(location);
         } else if (command == "jnt") {
             int location;
             ss >> location;
 // TODO check
-            cout << "jnt " << location << endl;
+            cerr << "jnt " << location << endl;
             Object *o = POP();
             if (o == falseobject)
                 ip += location - 1; // will increase at the end of loop
@@ -577,7 +579,7 @@ void print_stack_trace() {
         print_func();
         POP();
     } else {
-        cout << "no stack to print" << endl;
+        cerr << "no stack to print" << endl;
     }
 }
 
@@ -588,7 +590,7 @@ void convert_codes(std::stringstream& fs, std::vector<std::string> &codes) {
     int temp_ip = ip;
     while (std::getline(fs, line)) {
         if ((index = line.find(":")) != string::npos) {
-cout << "label:" << line.substr(0, index) << " index:" << temp_ip << endl;
+cerr << "label:" << line.substr(0, index) << " index:" << temp_ip << endl;
             line = line.substr(index+1);
         }
         codes.push_back(line);
@@ -598,10 +600,10 @@ cout << "label:" << line.substr(0, index) << " index:" << temp_ip << endl;
 }
 
 void dump_codes(std::vector<std::string>& codes) {
-    cout << "Dumping codes" << endl;
+    cerr << "Dumping codes" << endl;
     int i = 0;
     for (auto &line : codes) {
-        cout << i << " " << line << endl;
+        cerr << i << " " << line << endl;
         i++;
     }
 }
