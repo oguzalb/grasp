@@ -43,10 +43,33 @@ void str_contains() {
     }
 }
 
+void str_startswith() {
+    String *other = POP_TYPE(String, str_type);
+    String *self = POP_TYPE(String, str_type);
+    if (!self->sval.compare(0, other->sval.size(), other->sval)) {
+        PUSH(trueobject);
+    } else {
+        PUSH(falseobject);
+    }
+}
+
+void str_split() {
+    String *self = POP_TYPE(String, str_type);
+    std::stringstream ss(self->sval);
+    List *lst = new List();
+    string part;
+    while (std::getline(ss, part, ' ')) {
+        lst->list->push_back(new String(part));
+    }
+    PUSH(lst);
+}
+
 void init_string() {
     str_type = new Class("str", NULL);
     str_type->setmethod("__add__", str_add);
     str_type->setmethod("__equals__", str_equals);
     str_type->setmethod("__hash__", str_hash);
     str_type->setmethod("__contains__", str_contains);
+    str_type->setmethod("split", str_split);
+    str_type->setmethod("startswith", str_startswith);
 }
