@@ -385,6 +385,7 @@ void dummy () {
     POP_TYPE(String, str_type);
     POP_TYPE(List, NULL);
     POP_TYPE(Dict, NULL);
+    POP_TYPE(Bool, NULL);
 }
 void print_func() {
     Object *o= POP();

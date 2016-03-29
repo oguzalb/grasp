@@ -33,9 +33,20 @@ void str_hash() {
     PUSH(new Int(std::hash<string>()(self->sval)));
 }
 
+void str_contains() {
+    String *other = POP_TYPE(String, str_type);
+    String *self = POP_TYPE(String, str_type);
+    if (self->sval.find(other->sval) != std::string::npos) {
+        PUSH(trueobject);
+    } else {
+        PUSH(falseobject);
+    }
+}
+
 void init_string() {
     str_type = new Class("str", NULL);
     str_type->setmethod("__add__", str_add);
     str_type->setmethod("__equals__", str_equals);
     str_type->setmethod("__hash__", str_hash);
+    str_type->setmethod("__contains__", str_contains);
 }

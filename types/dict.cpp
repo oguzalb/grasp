@@ -9,6 +9,7 @@ extern Class *int_type;
 extern Class *func_type;
 extern Class *builtinfunc_type;
 extern Object *trueobject;
+extern Object *falseobject;
 
 class Hasher
 {
@@ -95,8 +96,21 @@ void dict_getitem() {
    }
 }
 
+void dict_contains() {
+    Object *key = POP();
+    Dict *self = POP_TYPE(Dict, dict_type);
+    try {
+        self->dict->at(key);
+        PUSH(trueobject);
+    } catch (const std::out_of_range& oor) {
+        PUSH(falseobject);
+   }
+
+}
+
 void init_dict() {
     dict_type = new Class("dict", NULL);
     dict_type->setmethod("__str__", dict_str);
     dict_type->setmethod("__getitem__", dict_getitem);
+    dict_type->setmethod("__contains__", dict_contains);
 }
