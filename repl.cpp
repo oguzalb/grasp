@@ -1,7 +1,11 @@
 #include "vm.h"
 #include "string.h"
+#include <unistd.h>
+#include <sys/param.h>
+
 extern std::vector<Object *> gstack;
 extern Class *exception_type;
+extern string main_path;
 
 std::stringstream compile(string code) {
    FILE *fpipe;
@@ -32,8 +36,16 @@ std::stringstream compile(string code) {
    return ss;
 }
 
+std::string get_working_path()
+{
+   char temp[MAXPATHLEN];
+   getcwd(temp, MAXPATHLEN);
+   return std::string(temp);
+}
+
 int main (int argc, char *argv[], char *env[]) {
     std::vector<std::string> codes;
+    main_path = get_working_path();
     init_builtins(&codes, argc, argv, env);
     string code;
     while (1) {

@@ -10,6 +10,7 @@ std::unordered_map<string, Object *> *builtins;
 std::unordered_map<string, Object *> *globals;
 std::unordered_map<string, Object *> imported_modules;
 Module *main_module;
+string main_path;
 Bool *trueobject;
 Bool *falseobject;
 Object *none;
@@ -190,7 +191,11 @@ inline Object *getglobal(string name) {
 Object *load_module(string module_name) {
     compile_file(module_name);
     string extension = ".graspo";
-    std::stringstream *ss = read_codes(module_name + extension);
+    string file_full_path = main_path + "/" + module_name + extension;
+    std::stringstream *ss = read_codes(file_full_path);
+    if (ss == NULL) {
+        return NULL;
+    }
     Module *module = new Module(new std::vector<string>());
     std::unordered_map<string, Object *> *globals_tmp = globals;
     globals = &module->fields;
@@ -604,6 +609,10 @@ void dump_codes(std::vector<std::string>& codes) {
 std::stringstream *read_codes(string filename) {
     std::fstream fs;
     fs.open(filename, std::fstream::in);
+    if (!fs.is_open()) {
+        newerror_internal("File could not be opened: " + filename, exception_type);
+        return NULL;
+    }
     std::stringstream *ss = new std::stringstream;
     copy(istreambuf_iterator<char>(fs),
      istreambuf_iterator<char>(),
@@ -676,9 +685,9 @@ void compile_file(string module_name) {
  // TODO workaround, will be changed
  // when grasp starts compiling itself
    FILE *fpipe;
-   string command="python grasp.py ";
+   string command=string("python ") + main_path + "/grasp.py ";
 // TODO check if it was already there
-   const char *compile_command = (command + module_name + ".grasp").c_str();
+   const char *compile_command = (command + main_path + "/" + module_name + ".grasp").c_str();
    if (!(fpipe = (FILE*)popen(compile_command, "r")) ) {
       perror("Problems with pipe");
       exit(1);
