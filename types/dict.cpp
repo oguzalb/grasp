@@ -12,6 +12,7 @@ extern Class *builtinfunc_type;
 extern Object *trueobject;
 extern Object *none;
 extern std::unordered_map<string, Object *> *globals;
+extern Object *falseobject;
 
 class Hasher
 {
@@ -110,11 +111,23 @@ void dict_new() {
     Class *cls= POP_TYPE(Class, class_type);
     PUSH(new Dict());
 }
- 
+
+void dict_contains() {
+    Object *key = POP();
+    Dict *self = POP_TYPE(Dict, dict_type);
+    try {
+        self->dict->at(key);
+        PUSH(trueobject);
+    } catch (const std::out_of_range& oor) {
+        PUSH(falseobject);
+   }
+}
+
 void init_dict() {
     dict_type = new Class("dict", dict_new, 1);
     dict_type->setmethod("__str__", dict_str, 1);
     dict_type->setmethod("__getitem__", dict_getitem, 2);
     dict_type->setmethod("__setitem__", dict_setitem, 3);
+    dict_type->setmethod("__contains__", dict_contains, 2);
     (*globals)["dict"] = dict_type;
 }

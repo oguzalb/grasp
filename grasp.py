@@ -138,8 +138,10 @@ funccall = Group(callparams)
 methodcall = Group(callparams)
 
 
-def infix_process(name):
+def infix_process(name, reverse=False):
     def expr_process(children, parser):
+        if reverse:
+            children.reverse()
         if len(children) < 3:
             return [c.process(c, parser) for c in children]
         results = [
@@ -223,7 +225,9 @@ addexpr = Infix(subexpr, Literal('+'))
 addexpr.process = infix_process("add")
 equalsexpr = Infix(addexpr, Literal("=="))
 equalsexpr.process = infix_process("equals")
-orexpr = Infix(equalsexpr, Literal('or'))
+inexpr = Infix(equalsexpr, Literal("in"))
+inexpr.process = infix_process("contains", reverse=True)
+orexpr = Infix(inexpr, Literal('or'))
 orexpr.process = infix_process("or")
 andexpr = Infix(orexpr, Literal('and'))
 andexpr_container << andexpr

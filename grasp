@@ -1,5 +1,6 @@
 #!/bin/bash
 ERROR_DIR=.
+# TODO we need a cgi handler, people might pass parameters to grasp script from QUERY_STRING
 if [ "$#" -lt 1 ]; then
     echo "Needs one argument: The grasp file"
     exit 1

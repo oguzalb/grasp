@@ -25,3 +25,7 @@ try
 catch KeyErr
     print("nonexistent field")
 lst = list()
+env = sys.env
+print("CLICOLOR" in env)
+print("CLICOLO" in env)
+print("substr" in "substrsubstr")

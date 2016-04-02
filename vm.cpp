@@ -445,6 +445,7 @@ void dummy () {
     POP_TYPE(Class, NULL);
     POP_TYPE(MysqlConnection, NULL);
     POP_TYPE(StringStream, NULL);
+    POP_TYPE(Bool, NULL);
 }
 void print_func() {
     Object *o= POP();
