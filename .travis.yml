@@ -2,5 +2,6 @@ language: cpp
 sudo: true
 install:
   - sudo pip install flake8==2.4.1
+  - sudo apt-get install libmysqlclient-dev
 script:
   - make test

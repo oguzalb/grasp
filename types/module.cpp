@@ -7,5 +7,5 @@ Module::Module(std::vector<std::string> *codes) {
 }
 
 void init_module() {
-    module_type = new Class("module", NULL);
+    module_type = new Class("module", object_new, 1);
 }

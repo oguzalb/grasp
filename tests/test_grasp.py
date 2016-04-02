@@ -153,7 +153,7 @@ call 2
 return
 pushglobal None
 return
-function -12 0
+function -12 0 2
 setglobal func1
 """
             ), ("""
@@ -179,7 +179,7 @@ getfield
 return
 pushglobal None
 return
-function -8 0
+function -8 0 1
 setglobal func1
 pushglobal func1
 int 1
@@ -201,7 +201,7 @@ call 2
 return
 pushglobal None
 return
-function -8 0
+function -8 0 2
 setglobal func1
 pushglobal func1
 pushglobal func1
@@ -249,7 +249,7 @@ call 2
 return
 pushglobal None
 return
-function -24 0
+function -24 0 1
 setglobal total
 pushglobal total
 int 5
@@ -305,7 +305,7 @@ pushlocal 1
 return
 pushglobal None
 return
-function -22 2
+function -22 2 1
 setglobal total2
 pushglobal print
 pushglobal total2
@@ -341,7 +341,7 @@ pushglobal None
 return
 dup
 str __init__
-function -9 0
+function -9 0 2
 setfield
 jmp 9
 pushglobal print
@@ -354,7 +354,7 @@ pushglobal None
 return
 dup
 str hello
-function -10 0
+function -10 0 1
 setfield
 pop
 pushglobal Person

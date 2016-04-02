@@ -11,6 +11,7 @@ std::unordered_map<string, Object *> *globals;
 std::unordered_map<string, Object *> imported_modules;
 Module *main_module;
 string main_path;
+string stack_machine_path;
 Bool *trueobject;
 Bool *falseobject;
 Object *none;
@@ -29,6 +30,7 @@ Class *class_type;
 Class *int_type;
 Class *object_type;
 Class *module_type;
+Class *string_stream_type;
 
 bool repl = false;
 
@@ -58,32 +60,30 @@ void newerror_internal(string message, Class *type) {
     PUSH(e);
 }
 
-void newinstance() {
-    Object *co = GETFUNC();
-    assert(co->type == class_type);
-    Class *c = static_cast<Class *>(co);
-    Object *o = new Object();
-    o->type = c;
-cerr << "newinstance" << endl;
+void call_init() {
+    Object *instance = POP();
 // TODO CHECK
-    Function* f = static_cast<Function *>(o->getfield("__init__"));
+    Function* f = static_cast<Function *>(instance->getfield("__init__"));
+    int localsize = LOCALSIZE();
+    PUSH(f);
     if (f != NULL) {
-        int localsize = LOCALSIZE();
-        PUSH(f);
-        PUSH(o);
-        cerr << "localsize:" << localsize << endl;
+        PUSH(instance);
         for (int i=0; i<localsize; i++)
             PUSH(GETLOCAL(i));
-        call(f->codes, 1 + localsize);
-        POP();
-        POP();
-    cerr << "__init__" << endl;
+        cerr << "calling __init__ with" << localsize + 1 << endl;
+        call(f->codes, localsize + 1);
+        Object *result = TOP();
+        if (IS_EXCEPTION(result))
+            return;
     }
-    PUSH(o);
+    Object *init_result = POP();
+    // consume __new__ params that are passed to init
+    gstack.resize(gstack.size() - localsize);
+    PUSH(init_result);
 }
 
 void newclass_internal() {
-    Class *c = new Class("custom", newinstance);
+    Class *c = new Class("custom", object_new, -1);
     PUSH(c);
 }
 
@@ -108,8 +108,8 @@ void newnone() {
     PUSH(none);
 }
 
-void newfunc(std::vector<std::string> &codes, int startp, string name, int locals_count) {
-    Function *o = new Function(codes, startp, name, locals_count);
+void newfunc(std::unordered_map<string, Object *> *globals, std::vector<std::string> &codes, int startp, string name, int locals_count, int param_count) {
+    Function *o = new Function(globals, codes, startp, name, locals_count, param_count);
     PUSH(o);
 }
 
@@ -199,11 +199,11 @@ Object *load_module(string module_name) {
         return NULL;
     }
     Module *module = new Module(new std::vector<string>());
-    std::unordered_map<string, Object *> *globals_tmp = globals;
-    globals = &module->fields;
     convert_codes(*ss, *module->codes);
     delete ss;
     int tmp_ip = ip;
+    std::unordered_map<string, Object *> *globals_tmp = globals;
+    globals = &module->fields;
     ip = 0;
     interpret_block(*module->codes);
     ip = tmp_ip;
@@ -217,17 +217,21 @@ Object *load_module(string module_name) {
 }
 
 void import(string module_name, string var_name) {
-    cerr << module_name << "." << var_name << endl;
+    cerr << "IMPORTING " << module_name << "." << var_name << endl;
     Object *module;
+        cerr << "before load" << module_name<< ":" <<ip << endl;
     if (imported_modules.find(module_name) == imported_modules.end()) {
         module = load_module(module_name);
         if (module == NULL)
             return;
+        imported_modules[module_name] = module;
     } else {
-        module = imported_modules.at(var_name);
+        cerr << "before at" << endl;
+        module = imported_modules.at(module_name);
+        cerr << "after at" << endl;
     }
+        cerr << "after load" << module_name<< ":" <<ip << endl;
     assert(module->type == module_type);
-    imported_modules[module_name] = module;
     Object *var = module->getfield(var_name);
     if (var == NULL) {
         string message = "Couldn't import " + var_name + " from " + module_name;
@@ -287,21 +291,37 @@ void call(std::vector<std::string>& codes, int param_count) {
     std::vector<int> *traps = new std::vector<int>();
     bp = gstack.size() - param_count;
     Object *callable = GETFUNC();
+    Function *new_func;
     // TODO exc
     if (callable->type == func_type) {
 // TODO
         Function *func = static_cast<Function *>(callable);
+        if (func->param_count != -1 && func->param_count != param_count) {
+            std::ostringstream ss;
+            ss << "Expected" << func->param_count << " got " << param_count;
+            newerror_internal(ss.str().c_str(), exception_type);
+            return;
+        }
         int cur_ip = ip;
         ip = func->codep;
         gstack.resize(gstack.size() + func->locals_count, NULL);
+        std::unordered_map<string, Object *> *temp_globals = globals;
+        globals = func->globals;
         interpret_block(func->codes);
+        globals = temp_globals;
         Object *result = POP();
         gstack.resize(gstack.size() - (param_count + func->locals_count));
         func = POP_TYPE(Function, func_type);
         PUSH(result);
         ip = cur_ip;
-    } else if (callable->type == builtinfunc_type || callable->type == class_type) {
+    } else if (callable->type == builtinfunc_type) {
         BuiltinFunction *func = static_cast<BuiltinFunction *>(callable);
+        if (func->param_count != -1 && func->param_count != param_count) {
+            std::ostringstream ss;
+            ss << "Expected " << func->param_count << "parameters, got " << param_count << endl;
+            newerror_internal(ss.str().c_str(), exception_type);
+            return;
+        }
         func->function();
         Object *result = POP();
         cerr << "returned " << result->type->type_name << endl;
@@ -309,6 +329,42 @@ void call(std::vector<std::string>& codes, int param_count) {
         BuiltinFunction* func_after = static_cast<BuiltinFunction *>(POP());
         assert(func_after == func);
         PUSH(result);
+    } else if (callable->type == class_type) {
+        BuiltinFunction *func = static_cast<BuiltinFunction *>(callable);
+        // param_count + 1 because of the cls variable!
+        if (func->param_count != -1 && func->param_count != param_count + 1) {
+            std::ostringstream ss;
+            ss << "Expected" << func->param_count << " got " << param_count + 1;
+            newerror_internal(ss.str().c_str(), exception_type);
+            return;
+        }
+        if (func->function == NULL) {
+            newerror_internal("Class does not have builtin __new__!!!", exception_type);
+            return;
+        }
+        // we need to push the type of class that we will get instance of
+        PUSH(func);
+        func->function();
+        Object *instance = POP();
+        // push the instance for init to use
+        cerr << "returned " << instance->type->type_name << endl;
+        PUSH(instance);
+        call_init();
+        if (gstack.size() > 0 && IS_EXCEPTION(TOP()))
+            return;
+        // pop none
+        POP();
+        BuiltinFunction* func_after = static_cast<BuiltinFunction *>(POP());
+        // return the instance
+        PUSH(instance);
+    } else if (new_func = static_cast<Function *>(callable->getfield("__new__"))) {
+// TODO this section is never tested!!!
+        if (new_func == NULL) {
+            newerror_internal("__new__ not found!!!", exception_type);
+            return;
+        }
+        call(new_func->codes, param_count);
+        call_init();
     } else {
         cerr << callable->type->type_name << endl;
         assert(FALSE);
@@ -327,6 +383,7 @@ void loop(std::vector<std::string>& codes, int location) {
 // next will consume this, should be optimized later on
     PUSH(it);
     newstr("next");
+// TODO CHECK EXCEPTIONS!!!
     getmethod();
     call(codes, 1);
     Object *result = TOP();
@@ -385,6 +442,9 @@ void dummy () {
     POP_TYPE(String, str_type);
     POP_TYPE(List, NULL);
     POP_TYPE(Dict, NULL);
+    POP_TYPE(Class, NULL);
+    POP_TYPE(MysqlConnection, NULL);
+    POP_TYPE(StringStream, NULL);
 }
 void print_func() {
     Object *o= POP();
@@ -410,11 +470,13 @@ void dump_stack() {
         Object *o = gstack.at(i);
         if (o == NULL)
             cerr << "UNBOUND" << endl;
-        cerr << o->type->type_name << endl;
+        else
+            cerr << i << ": " << o->type->type_name << endl;
     }
 }
 
 void interpret_block(std::vector<std::string> &codes) {
+    int block_bp = gstack.size() - 1;
     while (ip < codes.size()) {
         string command;
         string param;
@@ -432,10 +494,12 @@ void interpret_block(std::vector<std::string> &codes) {
             ss >> startp;
             int locals_count;
             ss >> locals_count;
+            int param_count;
+            ss >> param_count;
             // TODO sanity check
-            cerr << "function code read " << startp << endl;
+            cerr << "function code read " << startp << " param_count:" << param_count<<endl;
 // TODO
-            newfunc(codes, ip + startp, name, locals_count);
+            newfunc(globals, codes, ip + startp, name, locals_count, param_count);
             cerr << "next: " << codes[ip+startp] << endl;
         } else if (command == "int") {
             int ival;
@@ -555,10 +619,12 @@ void interpret_block(std::vector<std::string> &codes) {
                     ip = location-1;
                     continue;
                 }
+                POP();
+                gstack.resize(block_bp + 1);
+                PUSH(exc);
                 break;
             }
         }
-        //dump_stack();
         ip++;
     }
 }
@@ -585,19 +651,9 @@ void print_stack_trace() {
 
 void convert_codes(std::stringstream& fs, std::vector<std::string> &codes) {
     std::string line;
-    int ip_start = codes.size();
-    int temp_ip = ip;
     while (std::getline(fs, line)) {
-        int index = line.find(":");
-        int space_index = line.find(" ");
-        if (index != string::npos && index < space_index) {
-cerr << "label:" << line.substr(0, index) << " index:" << temp_ip << endl;
-            line = line.substr(index+1);
-        }
         codes.push_back(line);
-        temp_ip++;
     }
-    ip = ip_start;
 }
 
 void dump_codes(std::vector<std::string>& codes) {
@@ -624,44 +680,46 @@ std::stringstream *read_codes(string filename) {
 }
  
 void init_builtins(std::vector<std::string> *codes, int argc, char *argv[], char *env[]) {
-    globals = new std::unordered_map<string, Object *>();
+    main_module = new Module(codes);
+    globals = &main_module->fields;
     traps = new std::vector<int>();
     init_builtin_func();
     // TODO new instance functions should be implemented
     init_object();
-    class_type = new Class("Class", NULL);
+    class_type = new Class("Class", NULL, -1);
     class_type->type = object_type;
+    init_module();
     init_bool();
     init_exception();
-    stop_iteration_error = new Class("StopIterationError", NULL);
+    stop_iteration_error = new Class("StopIterationError", NULL, 0);
     stop_iteration_error->type = exception_type;
     (*globals)["StopIterationError"] = stop_iteration_error;
-    assertion_error = new Class("AssertionError", NULL);
+    assertion_error = new Class("AssertionError", NULL, 0);
     assertion_error->type = exception_type;
     (*globals)["AssertionError"] = assertion_error;
     init_int();
     init_function();
     init_string();
     (*globals)["str"] = str_type;
+    init_string_stream();
+    (*globals)["StringStream"] = string_stream_type;
     init_list();
     init_dict();
     init_listiterator();
-    BuiltinFunction *range = new BuiltinFunction(range_func);
+    BuiltinFunction *range = new BuiltinFunction(range_func, 1);
     (*globals)["range"] = range;
-    BuiltinFunction *isinstance = new BuiltinFunction(isinstance_func);
+    BuiltinFunction *isinstance = new BuiltinFunction(isinstance_func, 2);
     (*globals)["isinstance"] = isinstance;
-    BuiltinFunction *print = new BuiltinFunction(print_func);
+    BuiltinFunction *print = new BuiltinFunction(print_func, 1);
     (*globals)["print"] = print;
-    BuiltinFunction *assert = new BuiltinFunction(assert_func);
+    BuiltinFunction *assert = new BuiltinFunction(assert_func, 1);
     (*globals)["assert"] = assert;
-    none_type = new Class("NoneType", NULL);
+    none_type = new Class("NoneType", NULL, 0);
     none = new Object();
     none->type = none_type;
     (*globals)["None"] = none;
     builtins = globals;
     globals = new std::unordered_map<string, Object *>();
-    init_module();
-    main_module = new Module(codes);
     Module *sys_module = new Module(NULL);
     (*globals)["sys"] = sys_module;
     Int *o_argc = new Int(argc);
@@ -672,8 +730,12 @@ void init_builtins(std::vector<std::string> *codes, int argc, char *argv[], char
     sys_module->setfield("argv", o_argv);
     Dict *o_env = new Dict();
     while (*env != NULL) {
+        cerr << "parsing envvar: " << *env << endl;
+        std::cerr.flush();
         char *saveptr;
         char *key = strtok_r(*env, "=", &saveptr);
+        if (key == NULL)
+            continue;
         char *val = strtok_r(NULL, "\0", &saveptr);
         if (val == NULL)
             val = "";
@@ -681,17 +743,18 @@ void init_builtins(std::vector<std::string> *codes, int argc, char *argv[], char
         env++;
     }
     sys_module->setfield("env", o_env);
-    
+    init_grmysql();
 }
 
 void compile_file(string module_name) {
  // TODO workaround, will be changed
  // when grasp starts compiling itself
    FILE *fpipe;
-   string command=string("python ") + main_path + "/grasp.py ";
+   string command=string("python ") + stack_machine_path + "/grasp.py ";
 // TODO check if it was already there
-   const char *compile_command = (command + main_path + "/" + module_name + ".grasp").c_str();
-   if (!(fpipe = (FILE*)popen(compile_command, "r")) ) {
+   string compile_command = command + main_path + "/" + module_name + ".grasp";
+   cerr << "compile command for " << module_name << ": " << compile_command << endl;
+   if (!(fpipe = (FILE*)popen(compile_command.c_str(), "r")) ) {
       perror("Problems with pipe");
       exit(1);
    }

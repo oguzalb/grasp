@@ -1,8 +1,9 @@
 #!/bin/bash
-if [ "$#" -ne 1 ]; then
+ERROR_DIR=.
+if [ "$#" -lt 1 ]; then
     echo "Needs one argument: The grasp file"
     exit 1
 fi
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-python ${DIR}/grasp.py $1 || exit 1
-${DIR}/stackmachine.out $1o
+python ${DIR}/grasp.py $1 2>>${ERROR_DIR}/error_log || exit 1
+${DIR}/stackmachine.out $1o 2>>${ERROR_DIR}/error_log

@@ -1,0 +1,32 @@
+from settings import DB_CONF
+
+#from mysql import MysqlConnection
+#builtin module import not implemented yet
+
+class Table
+    __init__(self, name, field_names, model) ->
+        self.field_names = field_names
+        MysqlConnection = mysql.MysqlConnection
+        con = MysqlConnection()
+        con.open(DB_CONF["host"], DB_CONF["user"], DB_CONF["db"], DB_CONF["password"])
+        # TODO consider the connection close somewhere : )
+        # con.close()
+        self.con = con
+        self.name = name
+        self.field_names = field_names
+        self.model = model
+    query(self, query_string) ->
+        return self.con.query(query_string)
+    all(self) ->
+        resultset = list()
+        records = self.query("select * from " + self.name)
+        for row in records
+            Model = self.model
+            # module and class workaround should be considered
+            model = Model()
+            fields_len = self.field_names.__len__()
+            for i in range(fields_len)
+                field_name = self.field_names[i]
+                model.__setattr__(field_name, row[i])
+            resultset.append(model)
+        return resultset

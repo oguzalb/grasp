@@ -5,7 +5,8 @@
 class BuiltinFunction : public Object {
     public:
     void (*function) ();
-    BuiltinFunction(void(*function)());
+    BuiltinFunction(void(*function)(), int);
+    int param_count;
 };
 void init_builtin_func();
 

@@ -1,0 +1,7 @@
+#!/usr/bin/grasp
+print("Content-type: text/html\n\n")
+env = sys.env
+print("<p>Your QUERY_STRING is: " + env["QUERY_STRING"] + "</p>")
+
+from webapp import terms_view
+print(terms_view())

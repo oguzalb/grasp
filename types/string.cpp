@@ -34,8 +34,8 @@ void str_hash() {
 }
 
 void init_string() {
-    str_type = new Class("str", NULL);
-    str_type->setmethod("__add__", str_add);
-    str_type->setmethod("__equals__", str_equals);
-    str_type->setmethod("__hash__", str_hash);
+    str_type = new Class("str", NULL, 0);
+    str_type->setmethod("__add__", str_add, 2);
+    str_type->setmethod("__equals__", str_equals, 2);
+    str_type->setmethod("__hash__", str_hash, 1);
 }

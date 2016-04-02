@@ -1,7 +1,8 @@
-LIBS=
+LIBS=`mysql_config --cflags --libs`
 FLAGS=-std=c++0x -g -Wall -v
-TYPES=int.cpp string.cpp object.cpp builtin_function.cpp class.cpp bool.cpp function.cpp list_iterator.cpp list.cpp exception.cpp module.cpp dict.cpp
-SOURCES=$(TYPES:%.cpp=types/%.cpp)
+TYPES=int.cpp string.cpp object.cpp builtin_function.cpp class.cpp bool.cpp function.cpp list_iterator.cpp list.cpp exception.cpp module.cpp dict.cpp string_stream.cpp
+MODULES=grmysql.cpp
+SOURCES=$(TYPES:%.cpp=types/%.cpp) $(MODULES:%.cpp=modules/%.cpp)
 OBJECTS=$(SOURCES:.cpp=.o) vm.o
 .cpp.o:
 	g++ -c $< ${LIBS} ${FLAGS} -o $@
@@ -19,5 +20,5 @@ repl: all
 	
 clean:
 	rm -f stackmachine.out repl.out example.graspo
-	rm -f types/*.o *.o *.graspo
+	rm -f types/*.o modules/*.o *.o *.graspo
 	rm -Rf *.out.dSYM

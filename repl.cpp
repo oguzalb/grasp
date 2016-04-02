@@ -8,7 +8,7 @@ extern Class *exception_type;
 extern string main_path;
 extern bool repl;
 
-std::stringstream compile(string code) {
+std::stringstream *compile(string code) {
    FILE *fpipe;
    char *command="python grasp.py";
 
@@ -26,12 +26,12 @@ std::stringstream compile(string code) {
    pclose(fpipe);
 
    std::fstream fs;
-   std::stringstream ss;
+   std::stringstream *ss = new std::stringstream;
 // TODO handling stuff
    fs.open("repl.graspo", std::fstream::in);
    copy(istreambuf_iterator<char>(fs),
      istreambuf_iterator<char>(),
-     ostreambuf_iterator<char>(ss));
+     ostreambuf_iterator<char>(*ss));
    fs.close();
 // TODO might be unsuccessful
    return ss;
@@ -61,13 +61,16 @@ int main (int argc, char *argv[], char *env[]) {
             code += line + "\n";
             cout << "..";
         }
-        std::stringstream ss = compile(code);
-        convert_codes(ss, codes);
+        std::stringstream *ss = compile(code);
+        convert_codes(*ss, codes);
+        delete ss;
         dump_codes(codes);
         interpret_block(codes);
         if (gstack.size() > 0) {
-            Object *exc = POP();
+            Object *exc = TOP();
             assert(exc->isinstance(exception_type));
+            print_func();
+            POP();
         }
     };
     return 0;

@@ -4,7 +4,7 @@
 
 class Class : public BuiltinFunction {
     public:
-    Class(string type_name, void(*function)());
+    Class(string type_name, void(*function)(), int);
     string type_name;
 };
 

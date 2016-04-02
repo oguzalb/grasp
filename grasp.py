@@ -3,7 +3,7 @@ import re
 from parser.parse import (
     Word, quotedString, DelimitedList, Infix, Literal,
     IndentedBlock, Forward, Optional, Regex, Group,
-    PostfixWithoutLast, Atom, Token, ParseError)
+    PostfixWithoutLast, Atom, Token, ParseError, Postfix)
 from StringIO import StringIO
 
 
@@ -199,9 +199,9 @@ def getitem_process(children, parser):
 getitem.process = getitem_process
 functionmethodcall = (trailerwithcall | trailerwithoutcall | funccall)
 # TODO should be fixed using postfix or sth
-trailer = atom + Optional(accessor) + Optional(
+trailer = atom + Postfix(Optional(accessor) + Optional(
     functionmethodcall | getitem
-)
+))
 
 
 def trailerwithcall_process(children, parser):
@@ -418,10 +418,13 @@ def namedfuncdef_action(parser, tokens):
     parser.pop_context()
     # TODO this return value issue should be fixed on parse lib
     parser.set_next_label(tokens[0][0][2])
+    params = tokens[0][1][1]
+    param_count = 0 if params is None else len(params)
     parser.add_instruction(
-        "function %s %s" % (
+        "function %s %s %s" % (
             tokens[0][0][1],
-            parser.pop_local_var_count() - len(tokens[0][1][1])))
+            parser.pop_local_var_count() - param_count,
+            param_count))
     parser.add_instruction("setglobal %s" % tokens[0][0][0])
     return tokens
 namedfuncdef.set_action(namedfuncdef_action)
@@ -434,10 +437,16 @@ def classmethoddef_action(parser, tokens):
     parser.set_next_label(tokens[0][0][2])
     parser.add_instruction("dup")
     parser.add_instruction("str %s" % tokens[0][0][0])
+    params = tokens[0][1][1]
+    if params is None:
+        raise ParseError(
+            "method %s should have at least self" % tokens[0][0][0], -1)
+    param_count = len(params)
     parser.add_instruction(
-        "function %s %s" % (
+        "function %s %s %s" % (
             tokens[0][0][1],
-            parser.pop_local_var_count() - len(tokens[0][1][1])))
+            parser.pop_local_var_count() - param_count,
+            param_count))
     parser.add_instruction("setfield")
     return tokens
 classmethoddef.set_action(classmethoddef_action)

@@ -27,6 +27,6 @@ assert(it_obj->type == listiterator_type);
 }
 
 void init_listiterator() {
-    listiterator_type = new Class("iterator", NULL);
-    listiterator_type->setmethod("next", listiterator_next);
+    listiterator_type = new Class("iterator", NULL, 0);
+    listiterator_type->setmethod("next", listiterator_next, 1);
 }

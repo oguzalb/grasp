@@ -7,8 +7,11 @@ extern Class *exception_type;
 extern Class *str_type;
 extern Class *int_type;
 extern Class *func_type;
+extern Class *class_type;
 extern Class *builtinfunc_type;
 extern Object *trueobject;
+extern Object *none;
+extern std::unordered_map<string, Object *> *globals;
 
 class Hasher
 {
@@ -95,8 +98,23 @@ void dict_getitem() {
    }
 }
 
+void dict_setitem() {
+    Object *value = POP();
+    Object *key = POP();
+    Dict *self = POP_TYPE(Dict, dict_type);
+    self->dict->insert({key, value});
+    PUSH(none);
+}
+
+void dict_new() {
+    Class *cls= POP_TYPE(Class, class_type);
+    PUSH(new Dict());
+}
+ 
 void init_dict() {
-    dict_type = new Class("dict", NULL);
-    dict_type->setmethod("__str__", dict_str);
-    dict_type->setmethod("__getitem__", dict_getitem);
+    dict_type = new Class("dict", dict_new, 1);
+    dict_type->setmethod("__str__", dict_str, 1);
+    dict_type->setmethod("__getitem__", dict_getitem, 2);
+    dict_type->setmethod("__setitem__", dict_setitem, 3);
+    (*globals)["dict"] = dict_type;
 }

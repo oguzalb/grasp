@@ -1,0 +1,11 @@
+from models import slugs_manager
+from models import Term
+
+terms_view() ->
+    terms = slugs_manager.all()
+    table = StringStream().append("<table>")
+    table.append(Term.tableheader())
+    for term in terms
+        table.append(term.tablerow())
+    table.append("</table>")
+    return table

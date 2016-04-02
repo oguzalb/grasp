@@ -14,8 +14,9 @@ for i in range(10)
     print(i)
 i = 4
 count(4)
+person.__setattr__("additional_field", "value")
 try
-    person.hello
+    assert(person.additional_field == "value")
 catch KeyErr
     print("nonexistent field")
 print("first field access successful")
@@ -23,3 +24,4 @@ try
     person.nonexistent_field
 catch KeyErr
     print("nonexistent field")
+lst = list()

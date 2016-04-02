@@ -55,11 +55,11 @@ void int_div() {
 }
 
 void init_int() {
-    int_type = new Class("int", NULL);
-    int_type->setmethod("__add__", int_add);
-    int_type->setmethod("__sub__", int_sub);
-    int_type->setmethod("__mul__", int_mul);
-    int_type->setmethod("__div__", int_div);
-    int_type->setmethod("__equals__", int_equals);
-    int_type->setmethod("__hash__", int_hash);
+    int_type = new Class("int", NULL, 0);
+    int_type->setmethod("__add__", int_add, 2);
+    int_type->setmethod("__sub__", int_sub, 2);
+    int_type->setmethod("__mul__", int_mul, 2);
+    int_type->setmethod("__div__", int_div, 2);
+    int_type->setmethod("__equals__", int_equals, 2);
+    int_type->setmethod("__hash__", int_hash, 1);
 }
