@@ -128,8 +128,35 @@ def number_action(parser, tokens):
     parser.add_instruction("int %s" % tokens[0])
     return tokens
 number.set_action(number_action)
-atom = varname | string | number
 andexpr_container = Forward()
+dict_compr = (
+    Literal('{') +
+    Optional(DelimitedList(
+        Group(andexpr_container + Literal(':') + andexpr_container),
+        Literal(','))) +
+    Literal('}'))
+
+
+def dict_compr_action(parser, tokens):
+    items = tokens[1]
+    parser.add_instruction(
+        "build_dict %s" % (len(items) if items else 0))
+    return tokens
+dict_compr.set_action(dict_compr_action)
+
+list_compr = (
+    Literal('[') +
+    Optional(DelimitedList(andexpr_container, Literal(','))) +
+    Literal(']'))
+
+
+def list_compr_action(parser, tokens):
+    items = tokens[1]
+    parser.add_instruction(
+        "build_list %s" % (len(items) if items else 0))
+    return tokens
+list_compr.set_action(list_compr_action)
+atom = varname | string | number | list_compr | dict_compr
 callparams = (
     Literal('(') +
     Optional(DelimitedList(andexpr_container, Literal(","))) +
@@ -308,6 +335,17 @@ def fieldassgmt_action(parser, tokens):
     return tokens
 fieldassgmt.set_action(fieldassgmt_action)
 stmt = Forward()
+
+setitemassgmt = (
+    varname + Literal('[') +
+    andexpr_container + Literal(']') +
+    Literal("=") + Group(andexpr) + Literal("\n"))
+
+
+def setitemassgmt_action(parser, tokens):
+    parser.add_instruction("setitem")
+    return tokens
+setitemassgmt.set_action(setitemassgmt_action)
 
 
 class IfAtom(Atom):
@@ -493,7 +531,7 @@ def onerrstmt_process(children, parser):
 
 onerrstmt.process = onerrstmt_process
 
-stmt << (namedfuncdef | simpleassgmt | fieldassgmt |
+stmt << (namedfuncdef | simpleassgmt | fieldassgmt | setitemassgmt |
          onerrstmt | primitivestmt |
          ifstmt | forstmt | classstmt | Regex('\s+'))
 

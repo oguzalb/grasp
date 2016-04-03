@@ -50,7 +50,7 @@ inline void PUSH(Object *x) {
     gstack.push_back(x);
 }
 
-void call(std::vector<std::string>& codes, int param_count);
+void call(int param_count);
 
 void newerror_internal(string message, Class *type) {
     Object *e = new Object();
@@ -71,7 +71,7 @@ void call_init() {
         for (int i=0; i<localsize; i++)
             PUSH(GETLOCAL(i));
         cerr << "calling __init__ with" << localsize + 1 << endl;
-        call(f->codes, localsize + 1);
+        call(localsize + 1);
         Object *result = TOP();
         if (IS_EXCEPTION(result))
             return;
@@ -104,6 +104,24 @@ void newstr(string sval) {
     PUSH(o);
 }
 
+void build_list(int count) {
+    List *list = new List();
+    for (int i=0; i<count;i++) {
+        list->list->push_back(POP());
+    }
+    PUSH(list);
+}
+
+void build_dict(int count) {
+    Dict *dict = new Dict();
+    for (int i=0; i<count;i++) {
+        Object *val = POP();
+        Object *key = POP();
+        dict->insert(key, val);
+    }
+    PUSH(dict);
+}
+
 void newnone() {
     PUSH(none);
 }
@@ -120,6 +138,24 @@ void setfield() {
     Object *o3 = POP();
     o3->setfield(s->sval, o1);
     cerr << "field set: " << s->sval << endl;
+}
+
+void setitem() {
+    Object *val = POP();
+    Object *key = POP();
+    Object *dict = POP();
+    Object *func = dict->getfield("__setitem__");
+    if (func == NULL) {
+        newerror_internal("__setitem__ not found", exception_type);
+        return;
+    }
+    PUSH(func);
+    PUSH(dict);
+    PUSH(val);
+    PUSH(key);
+    call(3);
+    POP();
+    cerr << "item set: " << endl;
 }
 
 void getfield() {
@@ -283,7 +319,7 @@ void onerr(int location) {
     // TODO set the err
 }
 
-void call(std::vector<std::string>& codes, int param_count) {
+void call(int param_count) {
     // TODO stuff about param_count
     int size_before = gstack.size();
     int bp_temp = bp;
@@ -363,7 +399,7 @@ void call(std::vector<std::string>& codes, int param_count) {
             newerror_internal("__new__ not found!!!", exception_type);
             return;
         }
-        call(new_func->codes, param_count);
+        call(param_count);
         call_init();
     } else {
         cerr << callable->type->type_name << endl;
@@ -378,14 +414,14 @@ void call(std::vector<std::string>& codes, int param_count) {
 } 
 
 void swp();
-void loop(std::vector<std::string>& codes, int location) {
+void loop(int location) {
     Object *it = TOP();
 // next will consume this, should be optimized later on
     PUSH(it);
     newstr("next");
 // TODO CHECK EXCEPTIONS!!!
     getmethod();
-    call(codes, 1);
+    call(1);
     Object *result = TOP();
 // stop iteration should have its type
     if (!result->isinstance(stop_iteration_error)) {
@@ -433,7 +469,7 @@ void call_str(Object *o) {
     PUSH(o);
     assert(str_func->type == func_type || str_func->type == builtinfunc_type);
     Function *func = static_cast<Function *>(str_func);
-    call(func->codes, 1);
+    call(1);
 }
 
 void dummy () {
@@ -517,7 +553,7 @@ void interpret_block(std::vector<std::string> &codes) {
             int count;
             ss >> count;
             cerr << "call " << count <<endl;
-            call(codes, count);
+            call(count);
 // TODO check
         } else if (command == "class") {
             cerr << "class " << endl;
@@ -567,6 +603,9 @@ void interpret_block(std::vector<std::string> &codes) {
         } else if (command == "setfield") {
             cerr << "setfield" << endl;
             setfield();
+        } else if (command == "setitem") {
+            cerr << "setitem" << endl;
+            setitem();
         } else if (command == "getmethod") {
             cerr << "getmethod" << endl;
             getmethod();
@@ -588,7 +627,7 @@ void interpret_block(std::vector<std::string> &codes) {
             int location;
             ss >> location;
             cerr << "loop " << location << endl;
-            loop(codes, location);
+            loop(location);
         } else if (command == "trap"){
             int location;
             ss >> location;
@@ -607,6 +646,16 @@ void interpret_block(std::vector<std::string> &codes) {
             Object *o = POP();
             if (o == falseobject)
                 ip += location - 1; // will increase at the end of loop
+        } else if (command == "build_list"){
+            int count;
+            ss >> count;
+            cerr << "build_list " << count << endl;
+            build_list(count);
+        } else if (command == "build_dict"){
+            int count;
+            ss >> count;
+            cerr << "build_dict " << count << endl;
+            build_dict(count);
         } else {
             cerr << "command not defined" << command << endl;
             throw std::exception();

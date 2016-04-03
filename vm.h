@@ -55,5 +55,5 @@ void setglobal(string name);
 void newinstance();
 void call_str(Object *o);
 void print_func();
-void call(std::vector<std::string>& codes, int count);
+void call(int count);
 #endif

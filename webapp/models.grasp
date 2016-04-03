@@ -1,10 +1,10 @@
 from mysql_orm import Table
 
-field_names = list()
-field_names.append("term_id")
-field_names.append("name")
-field_names.append("slug")
-field_names.append("term")
+field_names = [
+    "term_id",
+    "name",
+    "slug",
+    "term"]
 class Term
     __str__(self) ->
         repr = StringStream()

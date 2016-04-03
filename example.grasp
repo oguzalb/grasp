@@ -25,7 +25,11 @@ try
 catch KeyErr
     print("nonexistent field")
 lst = list()
+lst2 = [1, 2, 3]
+dct = {1:"1", 2:"2"}
 env = sys.env
 print("CLICOLOR" in env)
 print("CLICOLO" in env)
 print("substr" in "substrsubstr")
+a = dict()
+a["hede"] = "hodo"

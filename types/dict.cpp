@@ -29,7 +29,7 @@ public:
     PUSH(key);
     assert(hash_func->type == func_type || hash_func->type == builtinfunc_type);
     Function *func = static_cast<Function *>(hash_func);
-    call(func->codes, 1);
+    call(1);
     Int *hash = POP_TYPE(Int, int_type);
     return std::hash<int>()(hash->ival);
   }
@@ -51,7 +51,7 @@ public:
     PUSH(o2);
     assert(eq_func->type == func_type || eq_func->type == builtinfunc_type);
     Function *func = static_cast<Function *>(eq_func);
-    call(func->codes, 2);
+    call(2);
     return POP() == trueobject;
   }
 };
