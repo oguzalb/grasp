@@ -72,7 +72,7 @@ void grmysql_new() {
 
 void grmysql_init() {
     Object *hede = TOP();
-    cerr << hede->type->type_name << endl;
+DEBUG_LOG(cerr << hede->type->type_name << endl;)
     MysqlConnection *con = POP_TYPE(MysqlConnection, mysql_connection_type);
     con->con = mysql_init(NULL);
 
@@ -91,7 +91,7 @@ void grmysql_close() {
 }
 
 void init_grmysql() {
-    Module *grmysql = new Module(NULL);
+    Module *grmysql = new Module(NULL, NULL);
     mysql_connection_type = new Class("MysqlConnection", grmysql_new, 1);
     mysql_connection_type->setmethod("__init__", grmysql_init, 1);
     mysql_connection_type->setmethod("close", grmysql_close, 1);

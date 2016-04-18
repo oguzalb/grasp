@@ -32,6 +32,39 @@ Class *object_type;
 Class *module_type;
 Class *string_stream_type;
 
+
+#define I_STR 1
+
+#define I_POP 10
+#define I_DUP 11
+#define I_RETURN 12
+#define I_SWP 13
+#define I_NOP 14
+#define I_CLASS 15
+#define I_SETITEM 16
+#define I_GETMETHOD 17
+#define I_SETFIELD 18
+#define I_GETFIELD 19
+#define I_CALL 20
+#define I_PUSHLOCAL 21
+#define I_PUSHGLOBAL 22
+#define I_SETLOCAL 23
+#define I_SETGLOBAL 24
+#define I_JMP 25
+#define I_POP_TRAP_JMP 26
+#define I_LOOP 27
+#define I_TRAP 28
+#define I_ONERR 29
+#define I_JNT 30
+#define I_PUSHCONST 31
+#define I_BUILD_LIST 32
+#define I_BUILD_DICT 33
+#define I_INT 34
+
+#define I_IMPORT 50
+
+#define I_FUNCTION 61
+
 bool repl = false;
 
 template<typename T> T assert_type(Object *o, Class *type)
@@ -70,7 +103,7 @@ void call_init() {
         PUSH(instance);
         for (int i=0; i<localsize; i++)
             PUSH(GETLOCAL(i));
-        cerr << "calling __init__ with" << localsize + 1 << endl;
+DEBUG_LOG(cerr << "calling __init__ with" << localsize + 1 << endl;)
         call(localsize + 1);
         Object *result = TOP();
         if (IS_EXCEPTION(result))
@@ -98,9 +131,8 @@ void replace_all(std::string& str, const std::string& from, const std::string& t
 }
 
 void newstr(string sval) {
-    replace_all(sval, "\\n", "\n");
     String *o = new String(sval);
-    cerr << "newstr: " << sval << endl;
+DEBUG_LOG(cerr << "newstr: " << sval << endl;)
     PUSH(o);
 }
 
@@ -126,8 +158,8 @@ void newnone() {
     PUSH(none);
 }
 
-void newfunc(std::unordered_map<string, Object *> *globals, std::vector<std::string> &codes, int startp, string name, int locals_count, int param_count) {
-    Function *o = new Function(globals, codes, startp, name, locals_count, param_count);
+void newfunc(std::unordered_map<string, Object *> *globals, std::vector<Object *> *co_consts, std::vector<unsigned char> &codes, int startp, string name, int locals_count, int param_count) {
+    Function *o = new Function(globals, co_consts, codes, startp, name, locals_count, param_count);
     PUSH(o);
 }
 
@@ -137,7 +169,7 @@ void setfield() {
     String *s = POP_TYPE(String, str_type);
     Object *o3 = POP();
     o3->setfield(s->sval, o1);
-    cerr << "field set: " << s->sval << endl;
+DEBUG_LOG(cerr << "field set: " << s->sval << endl;)
 }
 
 void setitem() {
@@ -155,21 +187,21 @@ void setitem() {
     PUSH(key);
     call(3);
     POP();
-    cerr << "item set: " << endl;
+DEBUG_LOG(cerr << "item set: " << endl;)
 }
 
 void getfield() {
     String *o1 = POP_TYPE(String, str_type);
-cerr << "field name type" << o1->type->type_name << endl;
+DEBUG_LOG(cerr << "field name type" << o1->type->type_name << endl;)
     Object *o2 = POP();
-cerr << "object type" << o2->type->type_name << endl;
+DEBUG_LOG(cerr << "object type" << o2->type->type_name << endl;)
     Object *field = o2->getfield(o1->sval);
     if (field == NULL) {
         newerror_internal("Field not found",exception_type);
         return;
     }
     PUSH(field);
-    cerr << "field pushed" << endl;
+DEBUG_LOG(cerr << "field pushed" << endl;)
 }
 
 void isinstance_func() {
@@ -192,11 +224,11 @@ void assert_func() {
 
 void getmethod() {
     String *o1 = POP_TYPE(String, str_type);
-cerr << "field name type:" << o1->type->type_name << endl;
+DEBUG_LOG(cerr << "field name type:" << o1->type->type_name << endl;)
     Object *o2 = POP();
-cerr << "object type:" << o2->type->type_name << endl;
+DEBUG_LOG(cerr << "object type:" << o2->type->type_name << endl;)
     Object *field = o2->getfield(o1->sval);
-    cerr << "type: " << o2->type->type_name << endl;
+DEBUG_LOG(cerr << "type: " << o2->type->type_name << endl;)
     if (field == NULL) {
         newerror_internal("Method not found", exception_type);
         return;
@@ -204,7 +236,7 @@ cerr << "object type:" << o2->type->type_name << endl;
     assert(field->type == builtinfunc_type || field->type == func_type);
     PUSH(field);
     PUSH(o2);
-    cerr << "field pushed type " << field->type->type_name << endl;
+DEBUG_LOG(cerr << "field pushed type " << field->type->type_name << endl;)
 }
 
 void setglobal(string name) {
@@ -219,7 +251,7 @@ inline Object *getglobal(string name) {
         try {
             o = builtins->at(name);
         } catch (const std::out_of_range& oor) {
-            cerr << "Global named " << name << " not found in builtins" << endl;
+DEBUG_LOG(cerr << "Global named " << name << " not found in builtins" << endl;)
             return NULL;
         }
     }
@@ -234,14 +266,17 @@ Object *load_module(string module_name) {
     if (ss == NULL) {
         return NULL;
     }
-    Module *module = new Module(new std::vector<string>());
+    std::vector<Object *> *co_consts = new std::vector<Object *>();
+    co_consts->push_back(none);
+    Module *module = new Module(co_consts, new std::vector<unsigned char>);
+    module->co_consts = co_consts;
     convert_codes(*ss, *module->codes);
     delete ss;
     int tmp_ip = ip;
     std::unordered_map<string, Object *> *globals_tmp = globals;
     globals = &module->fields;
     ip = 0;
-    interpret_block(*module->codes);
+    interpret_block(module->co_consts, *module->codes);
     ip = tmp_ip;
     globals = globals_tmp;
     if (gstack.size() > 0) {
@@ -253,20 +288,20 @@ Object *load_module(string module_name) {
 }
 
 void import(string module_name, string var_name) {
-    cerr << "IMPORTING " << module_name << "." << var_name << endl;
+DEBUG_LOG(cerr << "IMPORTING " << module_name << "." << var_name << endl;)
     Object *module;
-        cerr << "before load" << module_name<< ":" <<ip << endl;
+DEBUG_LOG(cerr << "before load" << module_name<< ":" <<ip << endl;)
     if (imported_modules.find(module_name) == imported_modules.end()) {
         module = load_module(module_name);
         if (module == NULL)
             return;
         imported_modules[module_name] = module;
     } else {
-        cerr << "before at" << endl;
+DEBUG_LOG(cerr << "before at" << endl;)
         module = imported_modules.at(module_name);
-        cerr << "after at" << endl;
+DEBUG_LOG(cerr << "after at" << endl;)
     }
-        cerr << "after load" << module_name<< ":" <<ip << endl;
+DEBUG_LOG(cerr << "after load" << module_name<< ":" <<ip << endl;)
     assert(module->type == module_type);
     Object *var = module->getfield(var_name);
     if (var == NULL) {
@@ -279,7 +314,7 @@ void import(string module_name, string var_name) {
 
 void setlocal(unsigned int ival) {
     if (ival >= (LOCALSIZE())) {
-        cerr << "OUPSSS, size bigger than locals" << endl;
+DEBUG_LOG(cerr << "OUPSSS, size bigger than locals" << endl;)
         exit(1);
     }
 // must be improved for local defs
@@ -294,17 +329,17 @@ void pushglobal(string name) {
     PUSH(o);
 }
 
-void pushlocal(unsigned int ival) {
+void pushlocal(int ival) {
     if (ival >= LOCALSIZE()) {
-        cerr << "OUPSSS, size bigger than locals" << endl;
+DEBUG_LOG(cerr << "OUPSSS, size bigger than locals" << endl;)
         exit(1);
     }
     gstack.push_back(GETLOCAL(ival));
-    cerr << "pushed type " << TOP()->type->type_name << endl;
+DEBUG_LOG(cerr << "pushed type " << TOP()->type->type_name << endl;)
 }
 
 
-void interpret_block(std::vector<std::string>& codes);
+void interpret_block(std::vector<Object *>*co_consts, std::vector<unsigned char>& codes);
 
 void trap(int location) {
     traps->push_back(ip+location);
@@ -314,7 +349,7 @@ void onerr(int location) {
     // TODO if it is assignment we have a problem!!!
     Object* o = POP();
     if (!IS_EXCEPTION(o)) {
-        ip += location - 1;
+        ip += location;
     }
     // TODO set the err
 }
@@ -343,7 +378,7 @@ void call(int param_count) {
         gstack.resize(gstack.size() + func->locals_count, NULL);
         std::unordered_map<string, Object *> *temp_globals = globals;
         globals = func->globals;
-        interpret_block(func->codes);
+        interpret_block(func->co_consts, func->codes);
         globals = temp_globals;
         Object *result = POP();
         gstack.resize(gstack.size() - (param_count + func->locals_count));
@@ -360,7 +395,7 @@ void call(int param_count) {
         }
         func->function();
         Object *result = POP();
-        cerr << "returned " << result->type->type_name << endl;
+DEBUG_LOG(cerr << "returned " << result->type->type_name << endl;)
 // builtin funcs consume the parameters
         BuiltinFunction* func_after = static_cast<BuiltinFunction *>(POP());
         assert(func_after == func);
@@ -383,7 +418,7 @@ void call(int param_count) {
         func->function();
         Object *instance = POP();
         // push the instance for init to use
-        cerr << "returned " << instance->type->type_name << endl;
+DEBUG_LOG(cerr << "returned " << instance->type->type_name << endl;)
         PUSH(instance);
         call_init();
         if (gstack.size() > 0 && IS_EXCEPTION(TOP()))
@@ -402,7 +437,7 @@ void call(int param_count) {
         call(param_count);
         call_init();
     } else {
-        cerr << callable->type->type_name << endl;
+DEBUG_LOG(cerr << callable->type->type_name << endl;)
         assert(FALSE);
     }
     delete traps;
@@ -437,20 +472,18 @@ void loop(int location) {
 void swp() {
     Object *o1 = POP();
     Object *o2 = POP();
-    cerr << "swapping " <<  o1->type->type_name << " with " << o2->type->type_name << endl;
+DEBUG_LOG(cerr << "swapping " <<  o1->type->type_name << " with " << o2->type->type_name << endl;)
     PUSH(o1);
     PUSH(o2);
 }
 
-std::vector<std::string> *read_func_code(std::vector<std::string> &codes) {
+std::vector<unsigned char> *read_func_code(std::vector<unsigned char> &codes) {
     std::stringstream ss;
     ss << "endfunction";
-    std::string endcommand = ss.str();
-    std::vector<std::string> *funccode = new std::vector<std::string>;
-    string line;
-    while (ip < codes.size() && (line = codes[ip]) != endcommand) {
-        funccode->push_back(line);
-        ip++;
+    std::vector<unsigned char> *funccode = new std::vector<unsigned char>;
+    string code = ss.str();
+    for (int i=0; i < code.size(); i++) {
+        funccode->push_back(code.at(i));
     }
     return funccode;
 }
@@ -502,162 +535,199 @@ void print_func() {
 }
 
 void dump_stack() {
-    cerr << "bp: " << bp << endl;
+DEBUG_LOG(cerr << "bp: " << bp << endl;)
     for (int i=0; i < gstack.size(); i++) {
         Object *o = gstack.at(i);
-        if (o == NULL)
-            cerr << "UNBOUND" << endl;
-        else
-            cerr << i << ": " << o->type->type_name << endl;
+DEBUG_LOG(cerr << i << ": " << (o==NULL?"UNBOUND":o->type->type_name) << endl;)
     }
 }
 
-void interpret_block(std::vector<std::string> &codes) {
+
+inline int next_arg(std::vector<unsigned char> &codes) {
+    int val; 
+    unsigned char higher = codes[ip+1];
+    unsigned char lesser = codes[ip];
+    val = (higher <<8) + lesser;
+    if (higher & (1<<7)) {
+        val -= (1<<16);
+    }
+ip+=2;
+    return val;
+}
+// TODO assert!!
+inline string get_const_str(std::vector<Object *> *co_consts, int i) {
+DEBUG_LOG(cerr << "getconst" << i << endl;)
+    String *str = static_cast<String *>(co_consts->at(i));
+    return str->sval;
+}
+
+void interpret_block(std::vector<Object *> *co_consts, std::vector<unsigned char> &codes) {
     int block_bp = gstack.size() - 1;
     while (ip < codes.size()) {
-        string command;
-        string param;
-        std::stringstream ss(codes[ip]);
-        ss >> command;
-        if (command == "pop") {
+        unsigned char command = codes[ip++];
+        switch ((int)command) {
+         case I_POP:
             if (TOP()->type != none_type && repl)
                 print_func();
             if (!IS_EXCEPTION(TOP()))
                 POP();
-        } else if (command == "function") {
-            string name;
+         break;
+         case I_FUNCTION: {
 // TODO check
-            int startp;
-            ss >> startp;
-            int locals_count;
-            ss >> locals_count;
-            int param_count;
-            ss >> param_count;
+            int startp = next_arg(codes); 
+            int locals_count = next_arg(codes);
+            int param_count = next_arg(codes);
+            string name = "func";
             // TODO sanity check
-            cerr << "function code read " << startp << " param_count:" << param_count<<endl;
+DEBUG_LOG(cerr << "function code read " << startp << " param_count:" << param_count<<endl;)
 // TODO
-            newfunc(globals, codes, ip + startp, name, locals_count, param_count);
-            cerr << "next: " << codes[ip+startp] << endl;
-        } else if (command == "int") {
-            int ival;
-            ss >> ival;
-// TODO check
-            PUSH(new Int(ival));
-        } else if (command == "str") {
-            string sval = ss.str().substr(4);
-// TODO check
-            newstr(sval);
-        } else if (command == "dup") {
+            newfunc(globals, co_consts, codes, ip + startp - 7, name, locals_count, param_count); // function is 7 bytes
+DEBUG_LOG(cerr << "next: " << codes[ip+startp-7] << endl;)
+         break;}
+         case I_INT: {
+            int ival = next_arg(codes);
+DEBUG_LOG(cerr << "int:" << ival << endl;)
+// TODO check  CONSTS
+            co_consts->push_back(new Int(ival));
+         break;}
+         case I_STR: {
+            string sval;
+            for (; codes[ip] != '\0'; ip++) {
+                char c = codes[ip];
+                sval.push_back(c);
+            }
+            replace_all(sval, "\\n", "\n");
+            ip++;
+DEBUG_LOG(cerr << "str:" << sval << co_consts->size()<< endl;)
+// TODO check CONSTS
+            co_consts->push_back(new String(sval));
+         break;}
+         case I_DUP:
             gstack.push_back(gstack.back());
-        } else if (command == "call") {
-            int count;
-            ss >> count;
-            cerr << "call " << count <<endl;
+         break;
+         case I_CALL: {
+            int count = next_arg(codes);
+DEBUG_LOG(cerr << "call " << count <<endl;)
             call(count);
+         break;}
 // TODO check
-        } else if (command == "class") {
-            cerr << "class " << endl;
+         case I_CLASS:
+DEBUG_LOG(cerr << "class " << endl;)
             newclass_internal();
 // TODO check
-        } else if (command == "import") {
-            cerr << "import" << endl;
-            string module_name;
-            ss >> module_name;
-            string var_name;
-            ss >> var_name;
+         break;
+         case I_IMPORT: {
+DEBUG_LOG(cerr << "import" << endl;)
+            string module_name = get_const_str(co_consts, next_arg(codes));
+            string var_name = get_const_str(co_consts, next_arg(codes));
             import(module_name, var_name);
-        } else if (command == "return") {
-            cerr << "return" << endl;
-            break;
+         break;}
+         case I_RETURN:
+DEBUG_LOG(cerr << "return" << endl;)
+             return;
+         break;
 // TODO check
-        } else if (command == "pushlocal") {
-            unsigned int lindex;
-            ss >> lindex;
+         case I_PUSHLOCAL: {
+            int lindex = next_arg(codes);
 // TODO check
-            cerr << "pushlocal " << lindex << endl;
+DEBUG_LOG(cerr << "pushlocal " << lindex << endl;)
             pushlocal(lindex);
-        } else if (command == "pushglobal") {
-            string name;
-            ss >> name;
+         break;}
+         case I_PUSHGLOBAL:{
+            string name = get_const_str(co_consts, next_arg(codes));
 // TODO check
-            cerr << "pushglobal " << name << endl;
+DEBUG_LOG(cerr << "pushglobal " << name << endl;)
             pushglobal(name);
-        } else if (command == "setlocal") {
-            int lindex;
-            ss >> lindex;
-            cerr << "setlocal " << lindex << endl;
+         break;}
+         case I_SETLOCAL: {
+            int lindex = next_arg(codes);
+DEBUG_LOG(cerr << "setlocal " << lindex << endl;)
             setlocal(lindex);
-        } else if (command == "setglobal") {
-            string name;
-            ss >> name;
-            cerr << "setglobal " << name << endl;
+         break;}
+         case I_SETGLOBAL: {
+            int index = next_arg(codes);
+DEBUG_LOG(cerr << "setglobal " << index << endl;)
+            string name = get_const_str(co_consts, index);
+DEBUG_LOG(cerr << "setglobal " << name << endl;)
             setglobal(name);
-        } else if (command == "swp") {
-            cerr << "swp" << endl;
+         break;}
+         case I_SWP:
+DEBUG_LOG(cerr << "swp" << endl;)
             swp();
-        } else if (command == "nop") {
-            cerr << "nop" << endl;
-        } else if (command == "getfield") {
-            cerr << "getfield" << endl;
+         break;
+         case I_NOP:
+DEBUG_LOG(cerr << "nop" << endl;)
+         break;
+         case I_GETFIELD:
+DEBUG_LOG(cerr << "getfield" << endl;)
             getfield();
-        } else if (command == "setfield") {
-            cerr << "setfield" << endl;
+         break;
+         case I_SETFIELD:
+DEBUG_LOG(cerr << "setfield" << endl;)
             setfield();
-        } else if (command == "setitem") {
-            cerr << "setitem" << endl;
+         break;
+         case I_SETITEM:
+DEBUG_LOG(cerr << "setitem" << endl;)
             setitem();
-        } else if (command == "getmethod") {
-            cerr << "getmethod" << endl;
+         break;
+         case I_GETMETHOD:
+DEBUG_LOG(cerr << "getmethod" << endl;)
             getmethod();
-        } else if (command == "jmp") {
-            int location;
-            ss >> location;
+         break;
+         case I_JMP: {
+            int location = next_arg(codes);
 // TODO check
-            cerr << "jmp " << location << endl;
-            ip += location-1; // will increase at the end of loop
-        } else if (command == "pop_trap_jmp") {
+DEBUG_LOG(cerr << "jmp " << location << endl;)
+            ip += location-3; // jmp is 3 bytes
+         break;}
+         case I_POP_TRAP_JMP: {
             traps->pop_back();
 // TODO this instruction will be reconsidered
-            int location;
-            ss >> location;
+            int location = next_arg(codes);
 // TODO check
-            cerr << "pop_trap_jmp " << location << endl;
-            ip += location-1; // will increase at the end of loop
-        } else if (command == "loop"){
-            int location;
-            ss >> location;
-            cerr << "loop " << location << endl;
-            loop(location);
-        } else if (command == "trap"){
-            int location;
-            ss >> location;
-            cerr << "trap " << location << endl;
-            trap(location);
-        } else if (command == "onerr"){
-            int location;
-            ss >> location;
-            cerr << "onerr " << location << endl;
-            onerr(location);
-        } else if (command == "jnt") {
-            int location;
-            ss >> location;
+DEBUG_LOG(cerr << "pop_trap_jmp " << location << endl;)
+            ip += location-3; // pop_trap_jmp is 3 bytes
+         break;}
+         case I_LOOP:{
+            int location = next_arg(codes);
+DEBUG_LOG(cerr << "loop " << location << endl;)
+            loop(location - 3); // loop is 3 bytes
+         break;}
+         case I_TRAP:{
+            int location = next_arg(codes);
+DEBUG_LOG(cerr << "trap " << location << endl;)
+            trap(location - 3); // trap is 3 bytes
+         break;}
+         case I_ONERR:{
+            int location = next_arg(codes);
+DEBUG_LOG(cerr << "onerr " << location << endl;)
+            onerr(location - 3); // onerr is 3 bytes
+         break;}
+         case I_JNT:{
+            int location = next_arg(codes);
 // TODO check
-            cerr << "jnt " << location << endl;
+DEBUG_LOG(cerr << "jnt " << location << endl;)
             Object *o = POP();
             if (o == falseobject)
-                ip += location - 1; // will increase at the end of loop
-        } else if (command == "build_list"){
-            int count;
-            ss >> count;
-            cerr << "build_list " << count << endl;
+                ip += location - 3; // jnt is 3 bytes
+         break;}
+         case I_PUSHCONST: {
+            int index = next_arg(codes);
+DEBUG_LOG(cerr << "pushconst " << index << endl;)
+            PUSH(co_consts->at(index));
+            break;}
+         case I_BUILD_LIST:{
+            int count = next_arg(codes);
+DEBUG_LOG(cerr << "build_list " << count << endl;)
             build_list(count);
-        } else if (command == "build_dict"){
-            int count;
-            ss >> count;
-            cerr << "build_dict " << count << endl;
+         break;}
+         case I_BUILD_DICT:{
+            int count = next_arg(codes);
+DEBUG_LOG(cerr << "build_dict " << count << endl;)
             build_dict(count);
-        } else {
-            cerr << "command not defined" << command << endl;
+         break;}
+         default:
+DEBUG_LOG(cerr << "command not defined" << command << endl;)
             throw std::exception();
         }
         if (gstack.size() > 0) {
@@ -666,7 +736,8 @@ void interpret_block(std::vector<std::string> &codes) {
                 if (traps->size() > 0) {
                     int location = traps->back();
                     traps->pop_back();
-                    ip = location-1;
+                    ip = location;
+                    POP(); // pop the exception
                     continue;
                 }
                 POP();
@@ -675,7 +746,6 @@ void interpret_block(std::vector<std::string> &codes) {
                 break;
             }
         }
-        ip++;
     }
 }
 
@@ -695,23 +765,15 @@ void print_stack_trace() {
         print_func();
         POP();
     } else {
-        cerr << "no stack to print" << endl;
+DEBUG_LOG(cerr << "no stack to print" << endl;)
     }
 }
 
-void convert_codes(std::stringstream& fs, std::vector<std::string> &codes) {
-    std::string line;
-    while (std::getline(fs, line)) {
-        codes.push_back(line);
-    }
-}
-
-void dump_codes(std::vector<std::string>& codes) {
-    cerr << "Dumping codes" << endl;
+void convert_codes(std::stringstream& fs, std::vector<unsigned char> &codes) {
+    string code_str = fs.str();
     int i = 0;
-    for (auto &line : codes) {
-        cerr << i << " " << line << endl;
-        i++;
+    for (;i < code_str.size(); i++) {
+        codes.push_back(code_str[i]);
     }
 }
 
@@ -729,8 +791,8 @@ std::stringstream *read_codes(string filename) {
     return ss;
 }
  
-void init_builtins(std::vector<std::string> *codes, int argc, char *argv[], char *env[]) {
-    main_module = new Module(codes);
+void init_builtins(std::vector<unsigned char> *codes, int argc, char *argv[], char *env[]) {
+    main_module = new Module(NULL, codes);
     globals = &main_module->fields;
     traps = new std::vector<int>();
     init_builtin_func();
@@ -738,6 +800,12 @@ void init_builtins(std::vector<std::string> *codes, int argc, char *argv[], char
     init_object();
     class_type = new Class("Class", NULL, -1);
     class_type->type = object_type;
+    none_type = new Class("NoneType", NULL, 0);
+    none = new Object();
+    none->type = none_type;
+    std::vector<Object *> *co_consts = new std::vector<Object *>();
+    co_consts->push_back(none);
+    main_module->co_consts = co_consts;
     init_module();
     init_bool();
     init_exception();
@@ -764,13 +832,12 @@ void init_builtins(std::vector<std::string> *codes, int argc, char *argv[], char
     (*globals)["print"] = print;
     BuiltinFunction *assert = new BuiltinFunction(assert_func, 1);
     (*globals)["assert"] = assert;
-    none_type = new Class("NoneType", NULL, 0);
-    none = new Object();
-    none->type = none_type;
     (*globals)["None"] = none;
     builtins = globals;
     globals = new std::unordered_map<string, Object *>();
-    Module *sys_module = new Module(NULL);
+    std::vector<Object *> *sys_co_consts = new std::vector<Object *>();
+    sys_co_consts->push_back(none);
+    Module *sys_module = new Module(sys_co_consts, NULL);
     (*globals)["sys"] = sys_module;
     Int *o_argc = new Int(argc);
     sys_module->setfield("argc", o_argc);
@@ -780,7 +847,7 @@ void init_builtins(std::vector<std::string> *codes, int argc, char *argv[], char
     sys_module->setfield("argv", o_argv);
     Dict *o_env = new Dict();
     while (*env != NULL) {
-        cerr << "parsing envvar: " << *env << endl;
+DEBUG_LOG(cerr << "parsing envvar: " << *env << endl;)
         std::cerr.flush();
         char *saveptr;
         char *key = strtok_r(*env, "=", &saveptr);
@@ -803,7 +870,7 @@ void compile_file(string module_name) {
    string command=string("python ") + stack_machine_path + "/grasp.py ";
 // TODO check if it was already there
    string compile_command = command + main_path + "/" + module_name + ".grasp";
-   cerr << "compile command for " << module_name << ": " << compile_command << endl;
+DEBUG_LOG(cerr << "compile command for " << module_name << ": " << compile_command << endl;)
    if (!(fpipe = (FILE*)popen(compile_command.c_str(), "r")) ) {
       perror("Problems with pipe");
       exit(1);

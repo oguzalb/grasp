@@ -94,7 +94,7 @@ void dict_getitem() {
         Object *val = self->dict->at(key);
         PUSH(val);
     } catch (const std::out_of_range& oor) {
-        cerr << "no field in dict" << endl;
+DEBUG_LOG(cerr << "no field in dict" << endl;)
         newerror_internal("KeyError", exception_type);
    }
 }

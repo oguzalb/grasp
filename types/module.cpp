@@ -1,9 +1,10 @@
 #include "module.h"
 extern Class *module_type;
 
-Module::Module(std::vector<std::string> *codes) {
+Module::Module(std::vector<Object *> *co_consts, std::vector<unsigned char> *codes) {
     this->type = module_type;
     this->codes = codes;
+    this->co_consts = co_consts;
 }
 
 void init_module() {

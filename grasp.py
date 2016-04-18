@@ -5,6 +5,7 @@ from parser.parse import (
     IndentedBlock, Forward, Optional, Regex, Group,
     PostfixWithoutLast, Atom, Token, ParseError, Postfix)
 from StringIO import StringIO
+from collections import OrderedDict
 
 
 class Parser():
@@ -14,6 +15,7 @@ class Parser():
         self.local_var_counts = []
         self.label_counter = 0
         self.next_label = None
+        self.atoms = OrderedDict()
 
     def add_instruction(self, code):
         if self.next_label:
@@ -21,6 +23,11 @@ class Parser():
             self.next_label = None
         else:
             self.code.write(code + "\n")
+
+    def add_atom(self, atom_type, val):
+        self.atoms[val] = atom_type
+        # first is None
+        return self.atoms.keys().index(val) + 1
 
     def new_label(self):
         self.label_counter += 1
@@ -35,19 +42,27 @@ class Parser():
         return "code:\n%s" % self.dumpcode()
 
     def convert_labels(self, code):
+        from dis import opmap, HAVE_1, HAVE_2, HAVE_3
         labels = {}
         code_lines = code.split('\n')
         # TODO workaround
         assert code_lines[-1] == ''
         del code_lines[-1]
         new_code_lines = []
-        for i, c in enumerate(code_lines):
+        ip = 0
+        for c in code_lines:
             if re.search("^\w+:", c):
                 label = c[:c.index(":")]
-                labels[label] = i
+                labels[label] = ip
                 new_code_lines.append(c[c.index(":")+1:])
+                ins_index = opmap[c[c.index(":")+1:].split(" ")[0]]
             else:
                 new_code_lines.append(c)
+                ins_index = opmap[c.split(" ")[0]]
+            ip += (
+                1 + (
+                    (ins_index >= HAVE_1) + (ins_index >= HAVE_2) +
+                    (ins_index >= HAVE_3)) * 2)
         code_lines = new_code_lines
         label_indexes = {
             "jnt": 1,
@@ -59,21 +74,35 @@ class Parser():
             "pop_trap_jmp": 1
         }
         new_code_lines = []
-        for i, line in enumerate(code_lines):
+        ip = 0
+        for line in code_lines:
             instruction = line.split()[0]
             if instruction in label_indexes:
                 index = label_indexes[instruction]
                 line_code = line.split()
-                line_code[index] = str(labels[line_code[index]] - i)
+                line_code[index] = str(labels[line_code[index]] - ip)
                 new_code_lines.append(" ".join(line_code))
             else:
                 new_code_lines.append(line)
+            ins_index = opmap[instruction]
+            ip += (
+                1 + (
+                    (ins_index >= HAVE_1) + (ins_index >= HAVE_2) +
+                    (ins_index >= HAVE_3)) * 2)
         return '\n'.join(new_code_lines) + '\n' if len(
             new_code_lines) > 0 else ''
 
+    def dumpatoms(self):
+        code = ""
+        for val, typ in self.atoms.iteritems():
+            code += "%s %s\n" % (typ, val)
+        return code
+
     def dumpcode(self):
-        code = self.code.getvalue() + ("" if self.next_label is None
-                                       else self.next_label + ":nop\n")
+        code = self.dumpatoms()
+        code += self.code.getvalue() + (
+            "" if self.next_label is None
+            else self.next_label + ":nop\n")
         return self.convert_labels(code)
 
     def push_context(self):
@@ -112,20 +141,23 @@ def varname_action(parser, tokens):
     if var_index != -1:
         parser.add_instruction("pushlocal %s" % var_index)
     else:
-        parser.add_instruction("pushglobal %s" % tokens[0])
+        index = parser.add_atom("str", tokens[0])
+        parser.add_instruction("pushglobal %s" % index)
     return tokens
 varname.set_action(varname_action)
 
 
 def string_action(parser, tokens):
-    parser.add_instruction("str %s" % tokens[0][1:-1])
+    index = parser.add_atom("str", tokens[0][1:-1])
+    parser.add_instruction("pushconst %s" % index)
     return tokens
 string.set_action(string_action)
 number = Regex("\w+")
 
 
 def number_action(parser, tokens):
-    parser.add_instruction("int %s" % tokens[0])
+    index = parser.add_atom("int", int(tokens[0]))
+    parser.add_instruction("pushconst %s" % index)
     return tokens
 number.set_action(number_action)
 andexpr_container = Forward()
@@ -174,7 +206,8 @@ def infix_process(name, reverse=False):
         results = [
             children[0].process(children[0], parser)
             if hasattr(children[0], "process") else None]
-        parser.add_instruction("str __%s__" % name)
+        index = parser.add_atom("str", "__%s__" % name)
+        parser.add_instruction("pushconst %s" % index)
         parser.add_instruction("getmethod")
         results.append(
             children[2].process(children[2], parser)
@@ -202,7 +235,8 @@ access_op = Literal(".")
 
 
 def accessor_action(parser, tokens):
-    parser.add_instruction("str " + tokens[0][1])
+    index = parser.add_atom("str", tokens[0][1])
+    parser.add_instruction("pushconst %s" % index)
     parser.add_instruction("getfield")
     return tokens
 fieldname = Word()
@@ -219,7 +253,8 @@ getitem = (
 
 
 def getitem_process(children, parser):
-    parser.add_instruction("str __getitem__")
+    index = parser.add_atom("str", "__getitem__")
+    parser.add_instruction("pushconst %s" % index)
     parser.add_instruction("getmethod")
     results = [child.process(child, parser) for child in children[0]]
     parser.add_instruction("call 2")
@@ -234,7 +269,8 @@ trailer = atom + Postfix(Optional(accessor) + Optional(
 
 
 def trailerwithcall_process(children, parser):
-    parser.add_instruction("str " + children[0][1][0])
+    index = parser.add_atom("str", children[0][1][0])
+    parser.add_instruction("pushconst %s" % index)
     parser.add_instruction("getmethod")
     return [child.process(child, parser) for child in children[0]]
 
@@ -273,7 +309,9 @@ importstmt = Literal('from') + Word() + Literal('import') + Word()
 
 
 def import_action(parser, tokens):
-    parser.add_instruction("import %s %s" % (tokens[1], tokens[3]))
+    mod_index = parser.add_atom("str", tokens[1])
+    name_index = parser.add_atom("str", tokens[3])
+    parser.add_instruction("import %s %s" % (mod_index, name_index))
     return tokens
 importstmt.set_action(import_action)
 
@@ -319,7 +357,8 @@ def simpleassgmt_action(parser, tokens):
     if var_index != -1:
         parser.add_instruction("setlocal %s" % var_index)
     else:
-        parser.add_instruction("setglobal %s" % tokens[0])
+        index = parser.add_atom("str", tokens[0])
+        parser.add_instruction("setglobal %s" % index)
     return tokens
 simpleassgmt.set_action(simpleassgmt_action)
 
@@ -329,7 +368,8 @@ fieldassgmt = (
 
 
 def fieldassgmt_action(parser, tokens):
-    parser.add_instruction("str " + tokens[2][1])
+    index = parser.add_atom("str", tokens[2][1])
+    parser.add_instruction("pushconst %s" % index)
     parser.add_instruction("swp")
     parser.add_instruction("setfield")
     return tokens
@@ -430,7 +470,8 @@ forstmt = (Literal("for") + Word() + Literal('in') +
 def forstmt_process(children, parser):
     startlabel = parser.new_label()
     children[0][3].process(children[0][3], parser)
-    parser.add_instruction("str iter")
+    index = parser.add_atom("str", "iter")
+    parser.add_instruction("pushconst %s" % index)
     parser.add_instruction("getmethod")
     parser.add_instruction("call 1")
     endlabel = parser.new_label()
@@ -442,13 +483,13 @@ def forstmt_process(children, parser):
     children[0][5].process(children[0][5], parser)
     parser.add_instruction("jmp %s" % startlabel)
     parser.set_next_label(endlabel)
-    parser.add_instruction("pop")
+    # what if it gets exception in the middle
     return []
 forstmt.process = forstmt_process
 
 
 def funcdef_action(parser, tokens):
-    parser.add_instruction("pushglobal None")
+    parser.add_instruction("pushconst 0")
     parser.add_instruction("return")
     return tokens
 funcdef.set_action(funcdef_action)
@@ -467,7 +508,8 @@ def namedfuncdef_action(parser, tokens):
             tokens[0][0][1],
             parser.pop_local_var_count() - param_count,
             param_count))
-    parser.add_instruction("setglobal %s" % tokens[0][0][0])
+    index = parser.add_atom("str", tokens[0][0][0])
+    parser.add_instruction("setglobal %s" % index)
     return tokens
 namedfuncdef.set_action(namedfuncdef_action)
 
@@ -478,7 +520,8 @@ def classmethoddef_action(parser, tokens):
     parser.pop_context()
     parser.set_next_label(tokens[0][0][2])
     parser.add_instruction("dup")
-    parser.add_instruction("str %s" % tokens[0][0][0])
+    index = parser.add_atom("str", tokens[0][0][0])
+    parser.add_instruction("pushconst %s" % index)
     params = tokens[0][1][1]
     if params is None:
         raise ParseError(
@@ -501,7 +544,8 @@ def classstmt_process(children, parser):
     parser.add_instruction("class")
     parser.add_instruction("dup")
     # TODO
-    parser.add_instruction("setglobal %s" % children[0][1][0])
+    index = parser.add_atom("str", children[0][1][0])
+    parser.add_instruction("setglobal %s" % index)
     children[0][3].process(children[0][3], parser)
     parser.add_instruction("pop")
     return []
@@ -570,6 +614,7 @@ def printerr(msg):
 
 if __name__ == "__main__":
     import argparse
+    from dis import to_bytecode
     argparser = argparse.ArgumentParser(description='Compile grasp code')
     argparser.add_argument(
         'file', nargs='?', help='File to compile')
@@ -588,4 +633,4 @@ if __name__ == "__main__":
     outputfilename = filename + 'o' if filename else "repl.graspo"
     printerr(str(parser))
     with open(outputfilename, 'w') as outputf:
-        outputf.write(parser.dumpcode())
+        outputf.write(to_bytecode(parser.dumpcode()))

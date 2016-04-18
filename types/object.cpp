@@ -27,12 +27,12 @@ Object *Object::getfield(string name) {
         Class *type = this->type;
         while (type != NULL) {
             try {
-                cerr << "searching " << name << " in " << type->type_name << endl;
+DEBUG_LOG(cerr << "searching " << name << " in " << type->type_name << endl;)
                 field = type->fields.at(name);
-                cerr << "getfield type " << type->type_name << endl;
+DEBUG_LOG(cerr << "getfield type " << type->type_name << endl;)
                 break;
             } catch (const std::out_of_range& oor) {
-                cerr << "no field" << name << " " << type->type_name << endl;
+DEBUG_LOG(cerr << "no field" << name << " " << type->type_name << endl;)
             }
             type = type->type;
         }

@@ -10,52 +10,68 @@ class GraspTest(unittest.TestCase):
         self.assertEquals(parser.dumpcode(), output, "test %s, %s: \"%s\" != \"%s\"" % (code, i, parser.dumpcode(), output))
 
     def test_varname(self):
-        self._test_code('var\n', 'pushglobal var\npop\n', 0)
+        self._test_code('var\n', 'str var\npushglobal 1\npop\n', 0)
 
     def test_trailer(self):
-        self._test_code("var.field1\n", "pushglobal var\nstr field1\ngetfield\npop\n", 0)
+        self._test_code("var.field1\n", "str var\nstr field1\npushglobal 1\npushconst 2\ngetfield\npop\n", 0)
 
     def test_expression(self):
         # easier to see
         tests = (
             (
 "a/b\n", 
-"""pushglobal a
+"""str a
 str __div__
+str b
+pushglobal 1
+pushconst 2
 getmethod
-pushglobal b
+pushglobal 3
 call 2
 pop
 """),
             (
 "a-b-c\n",
-"""pushglobal a
+"""str a
 str __sub__
+str b
+str c
+pushglobal 1
+pushconst 2
 getmethod
-pushglobal b
+pushglobal 3
 call 2
-str __sub__
+pushconst 2
 getmethod
-pushglobal c
+pushglobal 4
 call 2
 pop
 """),
             (
 "a-b+c*d/e\n",
-"""pushglobal a
+"""str a
 str __sub__
-getmethod
-pushglobal b
-call 2
+str b
 str __add__
-getmethod
-pushglobal c
+str c
 str __mul__
-getmethod
-pushglobal d
+str d
 str __div__
+str e
+pushglobal 1
+pushconst 2
 getmethod
-pushglobal e
+pushglobal 3
+call 2
+pushconst 4
+getmethod
+pushglobal 5
+pushconst 6
+getmethod
+pushglobal 7
+pushconst 8
+getmethod
+pushglobal 9
 call 2
 call 2
 call 2
@@ -63,30 +79,43 @@ pop
 """),
             (
 "a-b+c*d/e or f and g\n",
-"""pushglobal a
+"""str a
 str __sub__
-getmethod
-pushglobal b
-call 2
+str b
 str __add__
-getmethod
-pushglobal c
+str c
 str __mul__
-getmethod
-pushglobal d
+str d
 str __div__
-getmethod
-pushglobal e
-call 2
-call 2
-call 2
+str e
 str __or__
-getmethod
-pushglobal f
-call 2
+str f
 str __and__
+str g
+pushglobal 1
+pushconst 2
 getmethod
-pushglobal g
+pushglobal 3
+call 2
+pushconst 4
+getmethod
+pushglobal 5
+pushconst 6
+getmethod
+pushglobal 7
+pushconst 8
+getmethod
+pushglobal 9
+call 2
+call 2
+call 2
+pushconst 10
+getmethod
+pushglobal 11
+call 2
+pushconst 12
+getmethod
+pushglobal 13
 call 2
 pop
 """),
@@ -98,20 +127,26 @@ pop
         tests = (
             (
 "func1()\n",
-"""pushglobal func1
+"""str func1
+pushglobal 1
 call 0
 pop
 """),
             ("func1(1)\n",
-"""pushglobal func1
+"""str func1
 int 1
+pushglobal 1
+pushconst 2
 call 1
 pop
 """),
             ("func1(\"str1\", \"str3\")\n",
-"""pushglobal func1
+"""str func1
 str str1
 str str3
+pushglobal 1
+pushconst 2
+pushconst 3
 call 2
 pop
 """),
@@ -121,10 +156,13 @@ pop
     def test_return(self):
         tests = (
             ("return a+b\n",
-"""pushglobal a
+"""str a
 str __add__
+str b
+pushglobal 1
+pushconst 2
 getmethod
-pushglobal b
+pushglobal 3
 call 2
 return
 """),
@@ -140,28 +178,35 @@ func1(a,b) ->
     func2(c)
     return a+b
 """,
-"""jmp 13
-pushglobal func2
-pushglobal c
+"""str func2
+str c
+str __add__
+str func1
+jmp 31
+pushglobal 1
+pushglobal 2
 call 1
 pop
 pushlocal 0
-str __add__
+pushconst 3
 getmethod
 pushlocal 1
 call 2
 return
-pushglobal None
+pushconst 0
 return
-function -12 0 2
-setglobal func1
+function -28 0 2
+setglobal 4
 """
             ), ("""
 func1(c,d)
 """, 
-"""pushglobal func1
-pushglobal c
-pushglobal d
+"""str func1
+str c
+str d
+pushglobal 1
+pushglobal 2
+pushglobal 3
 call 2
 pop
 """
@@ -170,19 +215,23 @@ func1(a) ->
     return a.b.c
 func1(1)
 """, 
-"""jmp 9
-pushlocal 0
-str b
-getfield
+"""str b
 str c
+str func1
+int 1
+jmp 19
+pushlocal 0
+pushconst 1
+getfield
+pushconst 2
 getfield
 return
-pushglobal None
+pushconst 0
 return
-function -8 0 1
-setglobal func1
-pushglobal func1
-int 1
+function -16 0 1
+setglobal 3
+pushglobal 3
+pushconst 4
 call 1
 pop
 """
@@ -192,27 +241,32 @@ func1(a,b) ->
 func1.func = func1
 func1.func(1,2)
 """, 
-"""jmp 9
+"""str __add__
+str func1
+str func
+int 1
+int 2
+jmp 21
 pushlocal 0
-str __add__
+pushconst 1
 getmethod
 pushlocal 1
 call 2
 return
-pushglobal None
+pushconst 0
 return
-function -8 0 2
-setglobal func1
-pushglobal func1
-pushglobal func1
-str func
+function -18 0 2
+setglobal 2
+pushglobal 2
+pushglobal 2
+pushconst 3
 swp
 setfield
-pushglobal func1
-str func
+pushglobal 2
+pushconst 3
 getmethod
-int 1
-int 2
+pushconst 4
+pushconst 5
 call 3
 pop
 """
@@ -224,35 +278,41 @@ total(a) ->
         return a + total(a - 1)
 total(5)
 """, 
-"""jmp 25
+"""str __equals__
+int 1
+str __add__
+str total
+str __sub__
+int 5
+jmp 61
 pushlocal 0
-str __equals__
+pushconst 1
 getmethod
-int 1
+pushconst 2
 call 2
-jnt 4
-int 1
+jnt 10
+pushconst 2
 return
-jmp 2
+jmp 4
 nop
 pushlocal 0
-str __add__
+pushconst 3
 getmethod
-pushglobal total
+pushglobal 4
 pushlocal 0
-str __sub__
+pushconst 5
 getmethod
-int 1
+pushconst 2
 call 2
 call 1
 call 2
 return
-pushglobal None
+pushconst 0
 return
-function -24 0 1
-setglobal total
-pushglobal total
-int 5
+function -58 0 1
+setglobal 4
+pushglobal 4
+pushconst 6
 call 1
 pop
 """
@@ -260,20 +320,25 @@ pop
 for a in range(5)
     print(a)
 """,
-"""pushglobal range
+"""str range
 int 5
-call 1
 str iter
+str a
+str print
+pushglobal 1
+pushconst 2
+call 1
+pushconst 3
 getmethod
 call 1
-loop 7
-setglobal a
-pushglobal print
-pushglobal a
+loop 19
+setglobal 4
+pushglobal 5
+pushglobal 4
 call 1
 pop
-jmp -6
-pop
+jmp -16
+nop
 """     ), ("""
 total2(a) ->
     tot = 0
@@ -282,34 +347,40 @@ total2(a) ->
     return tot
 print(total2(5))
 """, 
-"""jmp 23
-int 0
+"""int 0
+str range
+str iter
+str __add__
+str total2
+str print
+int 5
+jmp 58
+pushconst 1
 setlocal 1
-pushglobal range
+pushglobal 2
 pushlocal 0
 call 1
-str iter
+pushconst 3
 getmethod
 call 1
-loop 9
+loop 25
 setlocal 2
 pushlocal 1
-str __add__
+pushconst 4
 getmethod
 pushlocal 2
 call 2
 setlocal 1
-jmp -8
-pop
+jmp -22
 pushlocal 1
 return
-pushglobal None
+pushconst 0
 return
-function -22 2 1
-setglobal total2
-pushglobal print
-pushglobal total2
-int 5
+function -55 2 1
+setglobal 5
+pushglobal 6
+pushglobal 5
+pushconst 7
 call 1
 call 1
 pop
@@ -328,41 +399,48 @@ class Person
 person = Person("oguz")
 person.hello()
 """, 
-"""class
+"""str Person
+str name
+str __init__
+str print
+str hello
+str oguz
+str person
+class
 dup
-setglobal Person
-jmp 8
+setglobal 1
+jmp 18
 pushlocal 0
 pushlocal 1
-str name
+pushconst 2
 swp
 setfield
-pushglobal None
+pushconst 0
 return
 dup
-str __init__
-function -9 0 2
+pushconst 3
+function -19 0 2
 setfield
-jmp 9
-pushglobal print
+jmp 21
+pushglobal 4
 pushlocal 0
-str name
+pushconst 2
 getfield
 call 1
 pop
-pushglobal None
+pushconst 0
 return
 dup
-str hello
-function -10 0 1
+pushconst 5
+function -22 0 1
 setfield
 pop
-pushglobal Person
-str oguz
+pushglobal 1
+pushconst 6
 call 1
-setglobal person
-pushglobal person
-str hello
+setglobal 7
+pushglobal 7
+pushconst 5
 getmethod
 call 1
 pop

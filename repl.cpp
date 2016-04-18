@@ -6,6 +6,8 @@
 extern std::vector<Object *> gstack;
 extern Class *exception_type;
 extern string main_path;
+extern Module *main_module;
+extern Object *none;
 extern bool repl;
 
 std::stringstream *compile(string code) {
@@ -46,10 +48,11 @@ std::string get_working_path()
 
 int main (int argc, char *argv[], char *env[]) {
     repl = true;
-    std::vector<std::string> codes;
+    std::vector<unsigned char> codes;
     main_path = get_working_path();
     init_builtins(&codes, argc, argv, env);
     string code;
+    std::vector<Object *> *co_consts;
     while (1) {
         string line;
         cout << ">>";
@@ -64,8 +67,9 @@ int main (int argc, char *argv[], char *env[]) {
         std::stringstream *ss = compile(code);
         convert_codes(*ss, codes);
         delete ss;
-        dump_codes(codes);
-        interpret_block(codes);
+        co_consts = new std::vector<Object *>();
+        co_consts->push_back(none);
+        interpret_block(co_consts, codes);
         if (gstack.size() > 0) {
             Object *exc = TOP();
             assert(exc->isinstance(exception_type));

@@ -6,7 +6,7 @@ extern Class *stop_iteration_error;
 
 ListIterator::ListIterator(std::vector<Object *> *list) {
     this->it = new std::vector<Object *>::iterator(list->begin());
-cerr << "new iterator points to" << *(*this->it) << endl;
+DEBUG_LOG(cerr << "new iterator points to" << *(*this->it) << endl;)
     this->end = new std::vector<Object *>::iterator(list->end());
 }
 

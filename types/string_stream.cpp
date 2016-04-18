@@ -11,7 +11,6 @@ StringStream::StringStream() {
 }
 
 void strstr_append() {
-dump_stack();
     Object *other = POP();
     StringStream *self = POP_TYPE(StringStream, string_stream_type);
     if (other->type == str_type) {
@@ -19,7 +18,7 @@ dump_stack();
         self->ssval << other_string->sval;
     } else if (other->type == string_stream_type) {
         StringStream *other_string_stream = static_cast<StringStream *>(other);
-        self->ssval << other_string_stream->ssval;
+        self->ssval << other_string_stream->ssval.str();
     }
     PUSH(self);
 }

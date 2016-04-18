@@ -32,14 +32,18 @@ using namespace std;
 #define POP_TYPE(type, class_object) (assert_type<type *>(POP(), class_object))
 #define TOP() gstack.back()
 #define IS_EXCEPTION(type) (type->isinstance(exception_type))
-
+#ifdef DEBUG
+#define DEBUG_LOG(x) x
+#else
+#define DEBUG_LOG(x) ;;
+#endif
 
 #define TRUE 1
 #define FALSE 0
 
-void init_builtins(std::vector<string> *codes, int argc, char *argv[], char *env[]);
-void interpret_block(std::vector<std::string>& codes);
-void convert_codes(std::stringstream& fs, std::vector<std::string> &codes);
+void init_builtins(std::vector<unsigned char> *codes, int argc, char *argv[], char *env[]);
+void interpret_block(std::vector<Object *>* co_consts, std::vector<unsigned char>& codes);
+void convert_codes(std::stringstream& fs, std::vector<unsigned char> &codes);
 bool ends_with(const string& s, const string& ending);
 BuiltinFunction *newbuiltinfunc_internal(void(*function)());
 inline Object* POP();
@@ -47,7 +51,7 @@ inline void PUSH(Object *);
 template<typename T> T assert_type(Object *o, Class *type);
 void newerror_internal(string message, Class *type);
 void print_stack_trace();
-void dump_codes(std::vector<std::string>& codes);
+void dump_codes(std::vector<unsigned char>& codes);
 std::stringstream *read_codes(string filename);
 void dump_stack();
 void compile_file(string module_name);
