@@ -65,6 +65,16 @@ Class *string_stream_type;
 
 #define I_FUNCTION 61
 
+#ifdef CALC_FLAG
+static clock_t pop_counter, function_counter, import_counter, get_field_counter, get_method_counter, set_field_counter, set_local_counter, push_local_counter, push_const_counter, set_global_counter, push_global_counter = 0;
+clock_t *counters[] = {&pop_counter, &function_counter, &import_counter, &get_field_counter, &get_method_counter, &set_field_counter, &set_local_counter, &push_local_counter, &push_const_counter, &set_global_counter, &push_global_counter};
+void dump_counters() {
+    char *clock_names[] = {"pop_counter", "function_counter", "import_counter", "get_field_counter", "get_method_counter", "set_field_counter", "set_local_counter", "push_local_counter", "push_const_counter", "set_global_counter", "push_global_counter", NULL};
+    for (int i=0; clock_names[i]!=NULL; i++)
+        printf("counter %d, %s, %d\n", i, clock_names[i], *counters[i]);
+}
+#endif
+
 bool repl = false;
 
 template<typename T> T assert_type(Object *o, Class *type)
@@ -566,13 +576,16 @@ void interpret_block(std::vector<Object *> *co_consts, std::vector<unsigned char
     while (ip < codes.size()) {
         unsigned char command = codes[ip++];
         switch ((int)command) {
-         case I_POP:
+        case I_POP: {
+            CALC(clock_t delta = 0;delta = clock();)
             if (TOP()->type != none_type && repl)
                 print_func();
             if (!IS_EXCEPTION(TOP()))
                 POP();
-         break;
+            CALC(pop_counter += clock() - delta;)
+        break;}
          case I_FUNCTION: {
+            CALC(clock_t delta = 0;delta = clock();)
 // TODO check
             int startp = next_arg(codes); 
             int locals_count = next_arg(codes);
@@ -583,6 +596,7 @@ DEBUG_LOG(cerr << "function code read " << startp << " param_count:" << param_co
 // TODO
             newfunc(globals, co_consts, codes, ip + startp - 7, name, locals_count, param_count); // function is 7 bytes
 DEBUG_LOG(cerr << "next: " << codes[ip+startp-7] << endl;)
+            CALC(function_counter += clock() - delta;)
          break;}
          case I_INT: {
             int ival = next_arg(codes);
@@ -617,10 +631,12 @@ DEBUG_LOG(cerr << "class " << endl;)
 // TODO check
          break;
          case I_IMPORT: {
+            CALC(clock_t delta = 0;delta = clock();)
 DEBUG_LOG(cerr << "import" << endl;)
             string module_name = get_const_str(co_consts, next_arg(codes));
             string var_name = get_const_str(co_consts, next_arg(codes));
             import(module_name, var_name);
+            CALC(import_counter += clock() - delta;)
          break;}
          case I_RETURN:
 DEBUG_LOG(cerr << "return" << endl;)
@@ -628,28 +644,36 @@ DEBUG_LOG(cerr << "return" << endl;)
          break;
 // TODO check
          case I_PUSHLOCAL: {
+            CALC(clock_t delta = 0;delta = clock();)
             int lindex = next_arg(codes);
 // TODO check
 DEBUG_LOG(cerr << "pushlocal " << lindex << endl;)
             pushlocal(lindex);
+            CALC(push_local_counter += clock() - delta;)
          break;}
          case I_PUSHGLOBAL:{
+            CALC(clock_t delta = 0;delta = clock();)
             string name = get_const_str(co_consts, next_arg(codes));
 // TODO check
 DEBUG_LOG(cerr << "pushglobal " << name << endl;)
             pushglobal(name);
+            CALC(push_global_counter += clock() - delta;)
          break;}
          case I_SETLOCAL: {
+            CALC(clock_t delta = 0;delta = clock();)
             int lindex = next_arg(codes);
 DEBUG_LOG(cerr << "setlocal " << lindex << endl;)
             setlocal(lindex);
+            CALC(set_local_counter += clock() - delta;)
          break;}
          case I_SETGLOBAL: {
+            CALC(clock_t delta = 0;delta = clock();)
             int index = next_arg(codes);
 DEBUG_LOG(cerr << "setglobal " << index << endl;)
             string name = get_const_str(co_consts, index);
 DEBUG_LOG(cerr << "setglobal " << name << endl;)
             setglobal(name);
+            CALC(set_global_counter += clock() - delta;)
          break;}
          case I_SWP:
 DEBUG_LOG(cerr << "swp" << endl;)
@@ -658,22 +682,28 @@ DEBUG_LOG(cerr << "swp" << endl;)
          case I_NOP:
 DEBUG_LOG(cerr << "nop" << endl;)
          break;
-         case I_GETFIELD:
+         case I_GETFIELD: {
+            CALC(clock_t delta = 0;delta = clock();)
 DEBUG_LOG(cerr << "getfield" << endl;)
             getfield();
-         break;
-         case I_SETFIELD:
+            CALC(get_field_counter += clock() - delta;)
+            break;}
+        case I_SETFIELD: {
+            CALC(clock_t delta = 0;delta = clock();)
 DEBUG_LOG(cerr << "setfield" << endl;)
             setfield();
-         break;
+            CALC(set_field_counter += clock() - delta;)
+         break;}
          case I_SETITEM:
 DEBUG_LOG(cerr << "setitem" << endl;)
             setitem();
          break;
-         case I_GETMETHOD:
+         case I_GETMETHOD: {
+            CALC(clock_t delta = 0;delta = clock();)
 DEBUG_LOG(cerr << "getmethod" << endl;)
             getmethod();
-         break;
+            CALC(get_method_counter += clock() - delta;)
+         break;}
          case I_JMP: {
             int location = next_arg(codes);
 // TODO check
@@ -712,9 +742,11 @@ DEBUG_LOG(cerr << "jnt " << location << endl;)
                 ip += location - 3; // jnt is 3 bytes
          break;}
          case I_PUSHCONST: {
+            CALC(clock_t delta = 0;delta = clock();)
             int index = next_arg(codes);
 DEBUG_LOG(cerr << "pushconst " << index << endl;)
             PUSH(co_consts->at(index));
+            CALC(push_const_counter += clock() - delta;)
             break;}
          case I_BUILD_LIST:{
             int count = next_arg(codes);

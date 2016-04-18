@@ -44,5 +44,9 @@ DEBUG_LOG(cerr << "Needs a file with extension .graspo as an argument" << endl;)
     }
     print_stack_trace();
 
+#ifdef CALC_FLAG
+    dump_counters();
+#endif
+
     return 0;
 }

@@ -66,7 +66,7 @@ class Token(object):
         self.action = None
 
     def parse_string(self, parser, text):
-        printerr(str(text))
+        # printerr(str(text))
         tokens, i = self.parse(text, 0)
         if len(text) != i:
             raise ParseError("Not finished %s, rest: %s" % (i, text[i:]), i)

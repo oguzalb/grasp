@@ -38,6 +38,12 @@ using namespace std;
 #define DEBUG_LOG(x) ;;
 #endif
 
+#ifdef CALC_FLAG
+#define CALC(x) x
+#else
+#define CALC(x) ;;
+#endif
+
 #define TRUE 1
 #define FALSE 0
 
@@ -60,4 +66,5 @@ void newinstance();
 void call_str(Object *o);
 void print_func();
 void call(int count);
+void dump_counters();
 #endif
