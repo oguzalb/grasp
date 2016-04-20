@@ -6,7 +6,6 @@
 extern std::vector<Object *> gstack;
 extern Class *exception_type;
 extern string main_path;
-extern Module *main_module;
 extern Object *none;
 extern bool repl;
 

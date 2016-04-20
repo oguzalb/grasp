@@ -91,7 +91,7 @@ void grmysql_close() {
 }
 
 void init_grmysql() {
-    Module *grmysql = new Module(NULL, NULL);
+    Module *grmysql = new Module(NULL);
     mysql_connection_type = new Class("MysqlConnection", grmysql_new, 1);
     mysql_connection_type->setmethod("__init__", grmysql_init, 1);
     mysql_connection_type->setmethod("close", grmysql_close, 1);

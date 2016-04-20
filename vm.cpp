@@ -276,17 +276,14 @@ Object *load_module(string module_name) {
     if (ss == NULL) {
         return NULL;
     }
-    std::vector<Object *> *co_consts = new std::vector<Object *>();
-    co_consts->push_back(none);
-    Module *module = new Module(co_consts, new std::vector<unsigned char>);
-    module->co_consts = co_consts;
+    Module *module = new Module(new std::vector<unsigned char>);
     convert_codes(*ss, *module->codes);
     delete ss;
     int tmp_ip = ip;
     std::unordered_map<string, Object *> *globals_tmp = globals;
     globals = &module->fields;
     ip = 0;
-    interpret_block(module->co_consts, *module->codes);
+    interpret_block(&module->co_consts, *module->codes);
     ip = tmp_ip;
     globals = globals_tmp;
     if (gstack.size() > 0) {
@@ -824,7 +821,10 @@ std::stringstream *read_codes(string filename) {
 }
  
 void init_builtins(std::vector<unsigned char> *codes, int argc, char *argv[], char *env[]) {
-    main_module = new Module(NULL, codes);
+    none_type = new Class("NoneType", NULL, 0);
+    none = new Object();
+    none->type = none_type;
+    main_module = new Module(codes);
     globals = &main_module->fields;
     traps = new std::vector<int>();
     init_builtin_func();
@@ -832,12 +832,6 @@ void init_builtins(std::vector<unsigned char> *codes, int argc, char *argv[], ch
     init_object();
     class_type = new Class("Class", NULL, -1);
     class_type->type = object_type;
-    none_type = new Class("NoneType", NULL, 0);
-    none = new Object();
-    none->type = none_type;
-    std::vector<Object *> *co_consts = new std::vector<Object *>();
-    co_consts->push_back(none);
-    main_module->co_consts = co_consts;
     init_module();
     init_bool();
     init_exception();
@@ -867,9 +861,7 @@ void init_builtins(std::vector<unsigned char> *codes, int argc, char *argv[], ch
     (*globals)["None"] = none;
     builtins = globals;
     globals = new std::unordered_map<string, Object *>();
-    std::vector<Object *> *sys_co_consts = new std::vector<Object *>();
-    sys_co_consts->push_back(none);
-    Module *sys_module = new Module(sys_co_consts, NULL);
+    Module *sys_module = new Module(NULL);
     (*globals)["sys"] = sys_module;
     Int *o_argc = new Int(argc);
     sys_module->setfield("argc", o_argc);
