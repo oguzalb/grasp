@@ -30,7 +30,8 @@ public:
     assert(hash_func->type == func_type || hash_func->type == builtinfunc_type);
     Function *func = static_cast<Function *>(hash_func);
     call(1);
-    Int *hash = POP_TYPE(Int, int_type);
+    Int *hash = (Int *)POP_TYPE(int_type);
+    assert(hash != NULL);
     return std::hash<int>()(hash->ival);
   }
 };
@@ -66,7 +67,9 @@ void Dict::insert(Object *key, Object *val) {
 }
 
 void dict_str() {
-    Dict *self = POP_TYPE(Dict, dict_type);
+    Dict *self = (Dict *)POP_TYPE(dict_type);
+    if (self == NULL)
+        return;
     string result = "{";
     for (auto i: *self->dict) {
         // TODO concurrency check later
@@ -74,13 +77,17 @@ void dict_str() {
         Object *exc = TOP();
         if (IS_EXCEPTION(exc))
             return;
-        String *str_repr = POP_TYPE(String, str_type);
+        String *str_repr = (String *)POP_TYPE(str_type);
+        if (str_repr == NULL)
+            return;
         result += str_repr->sval + ": ";
         call_str(i.second);
         exc = TOP();
         if (IS_EXCEPTION(exc))
             return;
-        str_repr = POP_TYPE(String, str_type);
+        str_repr = (String *)POP_TYPE(str_type);
+        if (str_repr == NULL)
+            return;
         result += str_repr->sval + ", ";
     }
     result += "}";
@@ -89,7 +96,9 @@ void dict_str() {
 
 void dict_getitem() {
     Object *key = POP();
-    Dict *self = POP_TYPE(Dict, dict_type);
+    Dict *self = (Dict *)POP_TYPE(dict_type);
+    if (self == NULL)
+        return;
     try {
         Object *val = self->dict->at(key);
         PUSH(val);
@@ -102,19 +111,25 @@ DEBUG_LOG(cerr << "no field in dict" << endl;)
 void dict_setitem() {
     Object *value = POP();
     Object *key = POP();
-    Dict *self = POP_TYPE(Dict, dict_type);
+    Dict *self = (Dict *)POP_TYPE(dict_type);
+    if (self == NULL)
+        return;
     self->dict->insert({key, value});
     PUSH(none);
 }
 
 void dict_new() {
-    Class *cls= POP_TYPE(Class, class_type);
+    Class *cls= (Class *)POP_TYPE(class_type);
+    if (cls == NULL)
+        return;
     PUSH(new Dict());
 }
 
 void dict_contains() {
     Object *key = POP();
-    Dict *self = POP_TYPE(Dict, dict_type);
+    Dict *self = (Dict *)POP_TYPE(dict_type);
+    if (self == NULL)
+        return;
     try {
         self->dict->at(key);
         PUSH(trueobject);

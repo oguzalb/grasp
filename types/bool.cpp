@@ -5,12 +5,16 @@ extern Object *falseobject;
 extern std::unordered_map<string, Object *> *globals;
 
 Bool::Bool(int bval) {
+    assert(bool_type != NULL);
     this->type = bool_type;
     this->bval = bval;
 }
 
 void bool_str() {
-    Object *o = POP_TYPE(Bool, bool_type);
+    Object *o = POP_TYPE(bool_type);
+    if (o == NULL) {
+        return;
+    }
     string str = (o == trueobject? "True": "False");
     PUSH(new String(str));
 }

@@ -4,7 +4,9 @@
 extern Class *exception_type;
 
 void exc_str() {
-    Object *exc = POP_TYPE(Object, exception_type);
+    Object *exc = POP_TYPE(exception_type);
+    if (exc == NULL)
+        return;
     Object *str = exc->getfield("message");
     if (str == NULL) {
         newerror_internal("Exception should have message field", exception_type);

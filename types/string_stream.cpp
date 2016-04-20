@@ -12,7 +12,9 @@ StringStream::StringStream() {
 
 void strstr_append() {
     Object *other = POP();
-    StringStream *self = POP_TYPE(StringStream, string_stream_type);
+    StringStream *self = (StringStream *)POP_TYPE(string_stream_type);
+    if (self == NULL)
+        return;
     if (other->type == str_type) {
         String *other_string = static_cast<String *>(other);
         self->ssval << other_string->sval;
@@ -24,12 +26,16 @@ void strstr_append() {
 }
 
 void strstr_new() {
-    Class *cls = POP_TYPE(Class, class_type);
+    Class *cls = (Class *)POP_TYPE(class_type);
+    if (cls == NULL)
+        return;
     PUSH(new StringStream());
 }
 
 void strstr_str() {
-    StringStream *self = POP_TYPE(StringStream, string_stream_type);
+    StringStream *self = (StringStream *)POP_TYPE(string_stream_type);
+    if (self == NULL)
+        return;
     PUSH(new String(self->ssval.str()));
 }
 

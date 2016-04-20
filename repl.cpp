@@ -8,6 +8,7 @@ extern Class *exception_type;
 extern string main_path;
 extern Object *none;
 extern bool repl;
+extern int ip;
 
 std::stringstream *compile(string code) {
    FILE *fpipe;
@@ -24,7 +25,10 @@ std::stringstream *compile(string code) {
    while (fgets(buf, sizeof (buf), fpipe) != NULL) {
        cur_string += buf;
    }
-   pclose(fpipe);
+   int status = pclose(fpipe);
+   if (WEXITSTATUS(status) != 0) {
+       return NULL;
+   }
 
    std::fstream fs;
    std::stringstream *ss = new std::stringstream;
@@ -47,11 +51,10 @@ std::string get_working_path()
 
 int main (int argc, char *argv[], char *env[]) {
     repl = true;
-    std::vector<unsigned char> codes;
     main_path = get_working_path();
-    init_builtins(&codes, argc, argv, env);
+    std::vector<unsigned char> *codes = new std::vector<unsigned char>();
+    init_builtins(codes, argc, argv, env);
     string code;
-    std::vector<Object *> *co_consts;
     while (1) {
         string line;
         cout << ">>";
@@ -64,11 +67,16 @@ int main (int argc, char *argv[], char *env[]) {
             cout << "..";
         }
         std::stringstream *ss = compile(code);
-        convert_codes(*ss, codes);
+        if (ss == NULL) {
+            // grasp.py gives the error already
+            continue;
+        }
+        codes = new std::vector<unsigned char>;
+        convert_codes(*ss, *codes);
         delete ss;
-        co_consts = new std::vector<Object *>();
-        co_consts->push_back(none);
-        interpret_block(co_consts, codes);
+        Module *repl_block = new Module(codes);
+        ip = 0;
+        interpret_block(repl_block);
         if (gstack.size() > 0) {
             Object *exc = TOP();
             assert(exc->isinstance(exception_type));

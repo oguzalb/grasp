@@ -11,16 +11,24 @@ String::String(string sval) {
 }
 
 void str_add() {
-    String *other = POP_TYPE(String, str_type);
-    String *self = POP_TYPE(String, str_type);
+    String *other = (String *)POP_TYPE(str_type);
+    if (other == NULL)
+        {POP();return;}
+    String *self = (String *)POP_TYPE(str_type);
+    if (self == NULL)
+        return;
     // TODO exc
     PUSH(new String(self->sval + other->sval));
 }
 
 void str_equals() {
-    String *o1 = POP_TYPE(String, str_type);
-    String *o2 = POP_TYPE(String, str_type);
-    if (o1->sval == o2->sval) {
+    String *self = (String *)POP_TYPE(str_type);
+    if (self == NULL)
+        {POP();return;}
+    String *other = (String *)POP_TYPE(str_type);
+    if (other == NULL)
+        return;
+    if (self->sval == other->sval) {
         PUSH(trueobject);
     } else {
         PUSH(falseobject);
@@ -28,14 +36,19 @@ void str_equals() {
 }
 
 void str_hash() {
-    String *self = POP_TYPE(String, str_type);
-    // TODO exc
+    String *self = (String *)POP_TYPE(str_type);
+    if (self == NULL)
+        return;
     PUSH(new Int(std::hash<string>()(self->sval)));
 }
 
 void str_contains() {
-    String *other = POP_TYPE(String, str_type);
-    String *self = POP_TYPE(String, str_type);
+    String *other = (String *)POP_TYPE(str_type);
+    if (other == NULL)
+        {POP();return;}
+    String *self = (String *)POP_TYPE(str_type);
+    if (self == NULL)
+        return;
     if (self->sval.find(other->sval) != std::string::npos) {
         PUSH(trueobject);
     } else {
@@ -44,8 +57,12 @@ void str_contains() {
 }
 
 void str_startswith() {
-    String *other = POP_TYPE(String, str_type);
-    String *self = POP_TYPE(String, str_type);
+    String *other = (String *)POP_TYPE(str_type);
+    if (other == NULL)
+        {POP();return;}
+    String *self = (String *)POP_TYPE(str_type);
+    if (self == NULL)
+        return;
     if (!self->sval.compare(0, other->sval.size(), other->sval)) {
         PUSH(trueobject);
     } else {
@@ -54,7 +71,9 @@ void str_startswith() {
 }
 
 void str_split() {
-    String *self = POP_TYPE(String, str_type);
+    String *self = (String *)POP_TYPE(str_type);
+    if (self == NULL)
+        return;
     std::stringstream ss(self->sval);
     List *lst = new List();
     string part;

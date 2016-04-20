@@ -1,5 +1,5 @@
 LIBS=`mysql_config --cflags --libs`
-FLAGS=-std=c++0x -g -Wall -v #-DCALC_FLAG #-DDEBUG 
+FLAGS=-std=c++0x -g -Wall -v -O3 -DCALC_FLAG #-DDEBUG 
 TYPES=int.cpp string.cpp object.cpp builtin_function.cpp class.cpp bool.cpp function.cpp list_iterator.cpp list.cpp exception.cpp module.cpp dict.cpp string_stream.cpp
 MODULES=grmysql.cpp
 SOURCES=$(TYPES:%.cpp=types/%.cpp) $(MODULES:%.cpp=modules/%.cpp)

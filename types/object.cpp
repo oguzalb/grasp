@@ -57,15 +57,19 @@ void __str__() {
 }
 
 void object_new() {
-    Class *c = POP_TYPE(Class, class_type);
+    Class *c = (Class *)POP_TYPE(class_type);
+    if (c == NULL)
+        return;
     Object *o = new Object();
     o->type = c;
     PUSH(o);
 }
 
 void object_getattr() {
-    String *attr_name = POP_TYPE(String, str_type);
+    String *attr_name = (String *)POP_TYPE(str_type);
     Object *self = POP();
+    if (attr_name == NULL)
+        return;
     Object *value;
     if (value = self->getfield(attr_name->sval)) {
         PUSH(value);
@@ -76,7 +80,9 @@ void object_getattr() {
 
 void object_setattr() {
     Object *value = POP();
-    String *attr_name = POP_TYPE(String, str_type);
+    String *attr_name = (String *)POP_TYPE(str_type);
+    if (attr_name == NULL)
+        return;
     Object *self = POP();
     self->setfield(attr_name->sval, value);
     PUSH(none);

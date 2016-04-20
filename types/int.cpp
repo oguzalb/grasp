@@ -11,8 +11,13 @@ Int::Int(int ival) {
 }
 
 void int_equals() {
-    Int *o1 = POP_TYPE(Int, int_type);
-    Int *o2 = POP_TYPE(Int, int_type);
+    Int *o1 = (Int *)POP_TYPE(int_type);
+    if (o1 == NULL) {
+        POP();return;
+    }
+    Int *o2 = (Int *)POP_TYPE(int_type);
+    if (o2 == NULL)
+        return;
     if (o1->ival == o2->ival) {
         PUSH(trueobject);
     } else {
@@ -21,35 +26,53 @@ void int_equals() {
 }
 
 void int_hash() {
-    Int *self = POP_TYPE(Int, int_type);
+    Int *self = (Int *)POP_TYPE(int_type);
+    if (self == NULL)
+        return;
     // TODO exc
     PUSH(new Int(std::hash<int>()(self->ival)));
 }
 
 void int_add() {
-    Int *o1 = POP_TYPE(Int, int_type);
-    Int *o2 = POP_TYPE(Int, int_type);
+    Int *o1 = (Int *)POP_TYPE(int_type);
+    if (o1 == NULL)
+        {POP();return;}
+    Int *o2 = (Int *)POP_TYPE(int_type);
+    if (o2 == NULL)
+        return;
     // TODO exc
     PUSH(new Int(o1->ival + o2->ival));
 }
 
 void int_sub() {
-    Int *o1 = POP_TYPE(Int, int_type);
-    Int *o2 = POP_TYPE(Int, int_type);
+    Int *o1 = (Int *)POP_TYPE(int_type);
+    if (o1 == NULL)
+        {POP();return;}
+    Int *o2 = (Int *)POP_TYPE(int_type);
+    if (o2 == NULL)
+        return;
     // TODO exc
     PUSH(new Int(o2->ival - o1->ival));
 }
  
 void int_mul() {
-    Int *o1 = POP_TYPE(Int, int_type);
-    Int *o2 = POP_TYPE(Int, int_type);
+    Int *o1 = (Int *)POP_TYPE(int_type);
+    if (o1 == NULL)
+        {POP();return;}
+    Int *o2 = (Int *)POP_TYPE(int_type);
+    if (o2 == NULL)
+        return;
     // TODO exc
     PUSH(new Int(o1->ival * o2->ival));
 }
  
 void int_div() {
-    Int *o1 = POP_TYPE(Int, int_type);
-    Int *o2 = POP_TYPE(Int, int_type);
+    Int *o1 = (Int *)POP_TYPE(int_type);
+    if (o1 == NULL)
+        {POP();return;}
+    Int *o2 = (Int *)POP_TYPE(int_type);
+    if (o2 == NULL)
+        return;
     // TODO exc
     PUSH(new Int(o1->ival / o2->ival));
 }

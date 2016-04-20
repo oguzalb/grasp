@@ -2,6 +2,7 @@
 #include "assert.h"
 
 unsigned int ip;
+CALC(int total_ops;)
 std::vector<Object *> gstack;
 unsigned int bp;
 std::vector<Object *> locals;
@@ -71,25 +72,29 @@ clock_t *counters[] = {&pop_counter, &function_counter, &import_counter, &get_fi
 void dump_counters() {
     char *clock_names[] = {"pop_counter", "function_counter", "import_counter", "get_field_counter", "get_method_counter", "set_field_counter", "set_local_counter", "push_local_counter", "push_const_counter", "set_global_counter", "push_global_counter", NULL};
     for (int i=0; clock_names[i]!=NULL; i++)
-        printf("counter %d, %s, %d\n", i, clock_names[i], *counters[i]);
+        cerr << "counter " << i << ", " << clock_names[i] << ", " << *counters[i] << endl;
+    cerr << "total processed ops: " << total_ops << endl;
 }
 #endif
 
 bool repl = false;
 
-template<typename T> T assert_type(Object *o, Class *type)
-{
-    assert(o->type == type);
-    return static_cast<T>(o);
+Object *POP_TYPE(Class *class_object) {
+    Object *o = POP();
+    if (o->type != class_object) {
+        newerror_internal("Type is not " + o->type->type_name, exception_type);
+        return NULL;
+    }
+    return o;
 }
 
-inline Object *POP() {
+Object *POP() {
     Object *o = gstack.back();
     gstack.pop_back();
     return o;
 }
 
-inline void PUSH(Object *x) {
+void PUSH(Object *x) {
     gstack.push_back(x);
 }
 
@@ -175,8 +180,9 @@ void newfunc(std::unordered_map<string, Object *> *globals, Module *module, int 
 
 void setfield() {
     Object *o1 = POP();
-    // TODO exception
-    String *s = POP_TYPE(String, str_type);
+    String *s = (String *)POP_TYPE(str_type);
+    if (s == NULL)
+        return;
     Object *o3 = POP();
     o3->setfield(s->sval, o1);
 DEBUG_LOG(cerr << "field set: " << s->sval << endl;)
@@ -201,7 +207,9 @@ DEBUG_LOG(cerr << "item set: " << endl;)
 }
 
 void getfield() {
-    String *o1 = POP_TYPE(String, str_type);
+    String *o1 = (String *)POP_TYPE(str_type);
+    if (o1 == NULL)
+        return;
 DEBUG_LOG(cerr << "field name type" << o1->type->type_name << endl;)
     Object *o2 = POP();
 DEBUG_LOG(cerr << "object type" << o2->type->type_name << endl;)
@@ -224,7 +232,9 @@ void isinstance_func() {
 }
 
 void assert_func() {
-    Object *result = POP_TYPE(Object, bool_type);
+    Object *result = (Object *)POP_TYPE(bool_type);
+    if (result == NULL)
+        return;
     if (result == trueobject)
         PUSH(none);
     else {
@@ -233,7 +243,9 @@ void assert_func() {
 }
 
 void getmethod() {
-    String *o1 = POP_TYPE(String, str_type);
+    String *o1 = (String *)POP_TYPE(str_type);
+    if (o1 == NULL)
+        return;
 DEBUG_LOG(cerr << "field name type:" << o1->type->type_name << endl;)
     Object *o2 = POP();
 DEBUG_LOG(cerr << "object type:" << o2->type->type_name << endl;)
@@ -389,7 +401,9 @@ void call(int param_count) {
         globals = temp_globals;
         Object *result = POP();
         gstack.resize(gstack.size() - (param_count + func->locals_count));
-        func = POP_TYPE(Function, func_type);
+        func = (Function *)POP_TYPE(func_type);
+        if (func == NULL)
+            return;
         PUSH(result);
         ip = cur_ip;
     } else if (callable->type == builtinfunc_type) {
@@ -453,7 +467,7 @@ DEBUG_LOG(cerr << callable->type->type_name << endl;)
     int size_after = gstack.size();
     //cerr << size_before << ":" << size_after + param_count << endl;
     assert(size_before == size_after + param_count);
-} 
+}
 
 void swp();
 void loop(int location) {
@@ -512,30 +526,23 @@ void call_str(Object *o) {
     call(1);
 }
 
-void dummy () {
-    // TODO something went wrong with compilation of this guy and i don't know why, will be fixed
-    assert_type<Object *>(NULL, NULL);
-    POP_TYPE(String, str_type);
-    POP_TYPE(List, NULL);
-    POP_TYPE(Dict, NULL);
-    POP_TYPE(Class, NULL);
-    POP_TYPE(MysqlConnection, NULL);
-    POP_TYPE(StringStream, NULL);
-    POP_TYPE(Bool, NULL);
-}
 void print_func() {
     Object *o= POP();
-    if (o->type == str_type)
-        cout << assert_type<String *>(o, str_type)->sval << endl;
-    else if (o->type == int_type)
-        cout << assert_type<Int *>(o, int_type)->ival << endl;
-    else {
+    if (o->type == str_type) {
+        String *s = (String *) o;
+        cout << s->sval << endl;
+    } else if (o->type == int_type) {
+        Int *i = (Int *) o;
+        cout << i->ival << endl;
+    } else {
         call_str(o);
         if (IS_EXCEPTION(TOP())) {
             return;
         }
         // TODO will be refactored
-        String *str = POP_TYPE(String, str_type);
+        String *str = (String *)POP_TYPE(str_type);
+        if (str == NULL)
+            return;
         cout << str->sval << endl;
     }
    PUSH(none);
@@ -551,7 +558,7 @@ DEBUG_LOG(cerr << i << ": " << (o==NULL?"UNBOUND":o->type->type_name) << endl;)
 
 
 inline int next_arg(std::vector<unsigned char> &codes) {
-    int val; 
+    int val;
     unsigned char higher = codes[ip+1];
     unsigned char lesser = codes[ip];
     val = (higher <<8) + lesser;
@@ -574,6 +581,7 @@ void interpret_block(Module *module) {
     int block_bp = gstack.size() - 1;
     while (ip < codes.size()) {
         unsigned char command = codes[ip++];
+        CALC(total_ops++;)
         switch ((int)command) {
         case I_POP: {
             CALC(clock_t delta = 0;delta = clock();)
@@ -586,7 +594,7 @@ void interpret_block(Module *module) {
          case I_FUNCTION: {
             CALC(clock_t delta = 0;delta = clock();)
 // TODO check
-            int startp = next_arg(codes); 
+            int startp = next_arg(codes);
             int locals_count = next_arg(codes);
             int param_count = next_arg(codes);
             string name = "func";
@@ -781,7 +789,9 @@ DEBUG_LOG(cerr << "command not defined" << command << endl;)
 }
 
 void range_func() {
-    Int *max = POP_TYPE(Int, int_type);
+    Int *max = (Int *)POP_TYPE(int_type);
+    if (max == NULL)
+        return;
     List *list = new List();
     for (int i=0; i<max->ival; i++)
         list->list->push_back(new Int(i));
@@ -821,7 +831,7 @@ std::stringstream *read_codes(string filename) {
      ostreambuf_iterator<char>(*ss));
     return ss;
 }
- 
+
 void init_builtins(std::vector<unsigned char> *codes, int argc, char *argv[], char *env[]) {
     none_type = new Class("NoneType", NULL, 0);
     none = new Object();

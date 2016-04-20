@@ -15,12 +15,21 @@ MysqlConnection::MysqlConnection() {
 }
 
 void grmysql_open() {
-    String *password = POP_TYPE(String, str_type);
-    String *db_name = POP_TYPE(String, str_type);
-    String *user = POP_TYPE(String, str_type);
-    String *host = POP_TYPE(String, str_type);
-    MysqlConnection *con = POP_TYPE(MysqlConnection, mysql_connection_type);
-
+    String *password = (String *)POP_TYPE(str_type);
+    if (password == NULL)
+        {POP();POP();POP();POP();return;}
+    String *db_name = (String *)POP_TYPE(str_type);
+    if (db_name == NULL)
+        {POP();POP();POP();return;}
+    String *user = (String *)POP_TYPE(str_type);
+    if (user == NULL)
+        {POP();POP();return;}
+    String *host = (String *)POP_TYPE(str_type);
+    if (host == NULL)
+        {POP();return;}
+    MysqlConnection *con = (MysqlConnection *)POP_TYPE(mysql_connection_type);
+    if (con == NULL)
+        return;
     if (mysql_real_connect(con->con, host->sval.c_str(), user->sval.c_str(), password->sval.c_str(), 
             db_name->sval.c_str(), 0, NULL, 0) == NULL) {
         fprintf(stderr, "%s\n", mysql_error(con->con));
@@ -32,8 +41,12 @@ void grmysql_open() {
 }
 
 void grmysql_query() {
-    String *query = POP_TYPE(String, str_type);
-    MysqlConnection *con = POP_TYPE(MysqlConnection, mysql_connection_type);
+    String *query = (String *)POP_TYPE(str_type);
+    if (query == NULL)
+        {POP();return;}
+    MysqlConnection *con = (MysqlConnection *)POP_TYPE(mysql_connection_type);
+    if (con == NULL)
+        return;
     if (mysql_query(con->con, query->sval.c_str())) {
         fprintf(stderr, "%s\n", mysql_error(con->con));
         newerror_internal("Query error", exception_type);
@@ -66,14 +79,17 @@ void grmysql_query() {
 }
 
 void grmysql_new() {
-    POP_TYPE(Class, class_type);
+    if (POP_TYPE(class_type) == NULL)
+        return;
     PUSH(new MysqlConnection());
 }
 
 void grmysql_init() {
     Object *hede = TOP();
 DEBUG_LOG(cerr << hede->type->type_name << endl;)
-    MysqlConnection *con = POP_TYPE(MysqlConnection, mysql_connection_type);
+    MysqlConnection *con = (MysqlConnection *)POP_TYPE(mysql_connection_type);
+    if (con == NULL)
+        return;
     con->con = mysql_init(NULL);
 
     if (con->con == NULL) {
@@ -85,7 +101,9 @@ DEBUG_LOG(cerr << hede->type->type_name << endl;)
 }
 
 void grmysql_close() {
-    MysqlConnection *con = POP_TYPE(MysqlConnection, mysql_connection_type);
+    MysqlConnection *con = (MysqlConnection *)POP_TYPE(mysql_connection_type);
+    if (con == NULL)
+        return;
     mysql_close(con->con);
     PUSH(none);
 }

@@ -27,7 +27,9 @@ void list_iter() {
 }
 
 void list_str() {
-    List *self = POP_TYPE(List, list_type);
+    List *self = (List *)POP_TYPE(list_type);
+    if (self == NULL)
+        return;
     string result = "[";
     for (int i=0; i< self->list->size(); i++) {
         // TODO concurrency check later
@@ -36,7 +38,9 @@ void list_str() {
         Object *exc = TOP();
         if (IS_EXCEPTION(exc))
             return;
-        String *str_repr = POP_TYPE(String, str_type);
+        String *str_repr = (String *)POP_TYPE(str_type);
+        if (str_repr == NULL)
+            return;
         result += str_repr->sval + ", ";
     }
     result += "]";
@@ -44,25 +48,35 @@ void list_str() {
 }
 
 void list_len() {
-    List *self = POP_TYPE(List, list_type);
+    List *self = (List *)POP_TYPE(list_type);
+    if (self == NULL)
+        return;
     PUSH(new Int(self->list->size()));
 }
 
 void list_append() {
     Object *value = POP();
-    List *self = POP_TYPE(List, list_type);
+    List *self = (List *)POP_TYPE(list_type);
+    if (self == NULL)
+        return;
     self->list->push_back(value);
     PUSH(none);
 }
 
 void list_new() {
-    Class *cls = POP_TYPE(Class, class_type);
+    Class *cls = (Class *)POP_TYPE(class_type);
+    if (cls == NULL)
+        return;
     PUSH(new List());
 }
 
 void list_getitem() {
-    Int *index = POP_TYPE(Int, int_type);
-    List *self = POP_TYPE(List, list_type);
+    Int *index = (Int *)POP_TYPE(int_type);
+    if (index == NULL)
+        {POP();return;}
+    List *self = (List *)POP_TYPE(list_type);
+    if (self == NULL)
+        return;
     try {
         PUSH(self->list->at(index->ival));
     } catch (const std::out_of_range& oor) {
