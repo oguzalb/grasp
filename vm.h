@@ -48,7 +48,7 @@ using namespace std;
 #define FALSE 0
 
 void init_builtins(std::vector<unsigned char> *codes, int argc, char *argv[], char *env[]);
-void interpret_block(std::vector<Object *>* co_consts, std::vector<unsigned char>& codes);
+void interpret_block(Module *module);
 void convert_codes(std::stringstream& fs, std::vector<unsigned char> &codes);
 bool ends_with(const string& s, const string& ending);
 BuiltinFunction *newbuiltinfunc_internal(void(*function)());

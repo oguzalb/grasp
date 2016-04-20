@@ -40,7 +40,7 @@ DEBUG_LOG(cerr << "Needs a file with extension .graspo as an argument" << endl;)
     if (ss != NULL) {
         convert_codes(*ss, *codes);
         delete ss;
-        interpret_block(&main_module->co_consts, *codes);
+        interpret_block(main_module);
     }
     print_stack_trace();
 

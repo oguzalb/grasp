@@ -168,8 +168,8 @@ void newnone() {
     PUSH(none);
 }
 
-void newfunc(std::unordered_map<string, Object *> *globals, std::vector<Object *> *co_consts, std::vector<unsigned char> &codes, int startp, string name, int locals_count, int param_count) {
-    Function *o = new Function(globals, co_consts, codes, startp, name, locals_count, param_count);
+void newfunc(std::unordered_map<string, Object *> *globals, Module *module, int startp, string name, int locals_count, int param_count) {
+    Function *o = new Function(globals, module, startp, name, locals_count, param_count);
     PUSH(o);
 }
 
@@ -283,7 +283,7 @@ Object *load_module(string module_name) {
     std::unordered_map<string, Object *> *globals_tmp = globals;
     globals = &module->fields;
     ip = 0;
-    interpret_block(&module->co_consts, *module->codes);
+    interpret_block(module);
     ip = tmp_ip;
     globals = globals_tmp;
     if (gstack.size() > 0) {
@@ -346,7 +346,7 @@ DEBUG_LOG(cerr << "pushed type " << TOP()->type->type_name << endl;)
 }
 
 
-void interpret_block(std::vector<Object *>*co_consts, std::vector<unsigned char>& codes);
+void interpret_block(Module *module);
 
 void trap(int location) {
     traps->push_back(ip+location);
@@ -385,7 +385,7 @@ void call(int param_count) {
         gstack.resize(gstack.size() + func->locals_count, NULL);
         std::unordered_map<string, Object *> *temp_globals = globals;
         globals = func->globals;
-        interpret_block(func->co_consts, func->codes);
+        interpret_block(func->module);
         globals = temp_globals;
         Object *result = POP();
         gstack.resize(gstack.size() - (param_count + func->locals_count));
@@ -568,7 +568,9 @@ DEBUG_LOG(cerr << "getconst" << i << endl;)
     return str->sval;
 }
 
-void interpret_block(std::vector<Object *> *co_consts, std::vector<unsigned char> &codes) {
+void interpret_block(Module *module) {
+    std::vector<Object *> *co_consts = &module->co_consts;
+    std::vector<unsigned char> &codes = *module->codes;
     int block_bp = gstack.size() - 1;
     while (ip < codes.size()) {
         unsigned char command = codes[ip++];
@@ -591,7 +593,7 @@ void interpret_block(std::vector<Object *> *co_consts, std::vector<unsigned char
             // TODO sanity check
 DEBUG_LOG(cerr << "function code read " << startp << " param_count:" << param_count<<endl;)
 // TODO
-            newfunc(globals, co_consts, codes, ip + startp - 7, name, locals_count, param_count); // function is 7 bytes
+            newfunc(globals, module, ip + startp - 7, name, locals_count, param_count); // function is 7 bytes
 DEBUG_LOG(cerr << "next: " << codes[ip+startp-7] << endl;)
             CALC(function_counter += clock() - delta;)
          break;}

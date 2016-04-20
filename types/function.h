@@ -8,13 +8,12 @@ class Module;
 class Function : public Object {
     public:
     int codep;
-    std::vector<unsigned char> codes;
     string name;
     int locals_count;
-    Function(std::unordered_map<string, Object *> *globals, std::vector<Object *> *co_consts, std::vector<unsigned char> &codes, int startp, string name, int locals_count, int param_count);
+    Function(std::unordered_map<string, Object *> *globals, Module *module, int startp, string name, int locals_count, int param_count);
     int param_count;
     std::unordered_map<string, Object *> *globals;
-    std::vector<Object *> *co_consts;
+    Module *module;
 };
 
 void init_function();
