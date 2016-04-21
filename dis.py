@@ -48,19 +48,33 @@ def to_bytecode(code):
         if line.startswith("str"):
             bytecode.extend(line[4:])
             bytecode.append(0)
+        elif line.startswith("int"):
+            int_val = int(line[4:])
+            assert int_val < (1 << 32)
+            if int_val < 0:
+                int_val = (1 << 32) + int_arg
+            bytecode.append(int_val & (255))
+            bytecode.append((int_val & (255 << 8)) >> 8)
+            bytecode.append((int_val & (255 << 16)) >> 16)
+            bytecode.append((int_val & (255 << 24)) >> 24)
         else:
             for arg in atoms[1:]:
-                int_arg = int(arg)
-                if int_arg < 0:
-                    int_arg = (1<<16) + int_arg
-                assert int_arg < (1 << 16)
-                bytecode.append(int_arg % 256)
-                bytecode.append(int_arg >> 8)
+                int_val = int(arg)
+                if int_val < 0:
+                    int_val = (1<<16) + int_val
+                assert int_val < (1 << 16)
+                bytecode.append(int_val % 256)
+                bytecode.append(int_val >> 8)
     return bytecode
 
 def getint(val):
     if val > (1<<15):
         return val - (1<<16)
+    return val
+
+def get32int(val):
+    if val > (1<<31):
+        return val - (1<<32)
     return val
 
 def to_code(bytecode):
@@ -77,6 +91,12 @@ def to_code(bytecode):
                 j += 1
             args = [str(bytecode[i:j])]
             i = j + 1
+        elif opt == opmap["int"]:
+            args = get32int(
+                bytecode[i] + (bytecode[i+1] << 8) +
+                (bytecode[i] << 16) + (bytecode[i+1] << 24)
+            )
+            i += 4
         else:
             if opt >= HAVE_1:
                 args.append(getint(bytecode[i] + (bytecode[i+1] << 8)))

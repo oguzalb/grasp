@@ -558,16 +558,32 @@ DEBUG_LOG(cerr << i << ": " << (o==NULL?"UNBOUND":o->type->type_name) << endl;)
 
 
 inline int next_arg(std::vector<unsigned char> &codes) {
+// not optimized, might have benefit optimizing since it works for each instruction
     int val;
     unsigned char higher = codes[ip+1];
     unsigned char lesser = codes[ip];
     val = (higher <<8) + lesser;
-    if (higher & (1<<7)) {
+// unlikely
+    if (higher > 0 && higher & (1<<7)) {
         val -= (1<<16);
     }
 ip+=2;
     return val;
 }
+
+inline int next_int_arg(std::vector<unsigned char> &codes) {
+// not optimized, not tested
+    long int val;
+    unsigned char highest = codes[ip+3];
+    long int lesser = codes[ip] + (((long int)codes[ip+1])<<8) + (((long int)codes[ip+2])<<16);
+    val = (((long int)highest & 127)<<24) + lesser;
+    if (highest & (1<<7)) {
+        val -= (1<<32);
+    }
+ip+=4;
+    return (int) val;
+}
+
 // TODO assert!!
 inline string get_const_str(std::vector<Object *> *co_consts, int i) {
 DEBUG_LOG(cerr << "getconst" << i << endl;)
@@ -606,7 +622,7 @@ DEBUG_LOG(cerr << "next: " << codes[ip+startp-7] << endl;)
             CALC(function_counter += clock() - delta;)
          break;}
          case I_INT: {
-            int ival = next_arg(codes);
+            int ival = next_int_arg(codes);
 DEBUG_LOG(cerr << "int:" << ival << endl;)
 // TODO check  CONSTS
             co_consts->push_back(new Int(ival));
