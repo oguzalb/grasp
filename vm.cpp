@@ -2,7 +2,7 @@
 #include "assert.h"
 
 unsigned int ip;
-CALC(int total_ops;)
+int total_ops;
 std::vector<Object *> gstack;
 unsigned int bp;
 std::vector<Object *> locals;
@@ -590,13 +590,19 @@ DEBUG_LOG(cerr << "getconst" << i << endl;)
     return str->sval;
 }
 
+void garbage_collect() {
+    // do_sth
+}
+
 void interpret_block(Module *module) {
     std::vector<Object *> *co_consts = &module->co_consts;
     std::vector<unsigned char> &codes = *module->codes;
     int block_bp = gstack.size() - 1;
     while (ip < codes.size()) {
         unsigned char command = codes[ip++];
-        CALC(total_ops++;)
+        total_ops++;
+        if (total_ops % 100 == 0)
+            garbage_collect();
         switch ((int)command) {
         case I_POP: {
             CALC(clock_t delta = 0;delta = clock();)
