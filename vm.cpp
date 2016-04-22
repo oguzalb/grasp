@@ -33,7 +33,6 @@ Class *object_type;
 Class *module_type;
 Class *string_stream_type;
 
-
 #define I_STR 1
 
 #define I_POP 10
@@ -913,6 +912,7 @@ DEBUG_LOG(cerr << "parsing envvar: " << *env << endl;)
     }
     sys_module->setfield("env", o_env);
     init_grmysql();
+    init_grsocket();
 }
 
 void compile_file(string module_name) {

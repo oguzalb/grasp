@@ -1,0 +1,7 @@
+S = socket.socket
+s = S()
+s.bind(22000)
+for i in range(3)
+    c = s.accept()
+    d = c.recv()
+    print(d)

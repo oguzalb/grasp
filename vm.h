@@ -26,6 +26,7 @@ using namespace std;
 #include "types/exception.h"
 
 #include "modules/grmysql.h"
+#include "modules/grsocket.h"
 
 #define GETLOCAL(x) (gstack[bp+x])
 #define GETFUNC() (gstack.at(bp-1))
