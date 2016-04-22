@@ -7,7 +7,6 @@ extern Class *class_type;
 Class *mysql_connection_type;
 extern Class *exception_type;
 extern std::unordered_map<string, Object*> *builtins;
-extern std::vector<Object*> gstack;
 extern Object *none;
 
 MysqlConnection::MysqlConnection() {
