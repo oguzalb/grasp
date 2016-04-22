@@ -85,8 +85,6 @@ void grmysql_new() {
 }
 
 void grmysql_init() {
-    Object *hede = TOP();
-DEBUG_LOG(cerr << hede->type->type_name << endl;)
     MysqlConnection *con = (MysqlConnection *)POP_TYPE(mysql_connection_type);
     if (con == NULL)
         return;
