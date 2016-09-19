@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include <unistd.h>
 
 class Socket: public Object {
     public:
