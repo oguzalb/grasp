@@ -8,7 +8,7 @@ class Table
         self.field_names = field_names
         MysqlConnection = mysql.MysqlConnection
         con = MysqlConnection()
-        con.open(DB_CONF["host"], DB_CONF["user"], DB_CONF["db"], DB_CONF["password"])
+        con.open(DB_CONF["host"], DB_CONF["user"], DB_CONF["db"], DB_CONF["charset"], DB_CONF["password"])
         # TODO consider the connection close somewhere : )
         # con.close()
         self.con = con

@@ -14,18 +14,22 @@ MysqlConnection::MysqlConnection() {
 }
 
 void grmysql_open() {
+    // TODO need to decide what to do with type check failures, in an easier way
     String *password = (String *)POP_TYPE(str_type);
     if (password == NULL)
-        {POP();POP();POP();POP();return;}
+        {POP();POP();POP();POP();POP();PUSH(none);return;}
+    String *charset = (String *)POP_TYPE(str_type);
+    if (charset == NULL)
+        {POP();POP();POP();POP();PUSH(none);return;}
     String *db_name = (String *)POP_TYPE(str_type);
     if (db_name == NULL)
-        {POP();POP();POP();return;}
+        {POP();POP();POP();PUSH(none);return;}
     String *user = (String *)POP_TYPE(str_type);
     if (user == NULL)
-        {POP();POP();return;}
+        {POP();POP();PUSH(none);return;}
     String *host = (String *)POP_TYPE(str_type);
     if (host == NULL)
-        {POP();return;}
+        {POP();PUSH(none);return;}
     MysqlConnection *con = (MysqlConnection *)POP_TYPE(mysql_connection_type);
     if (con == NULL)
         return;
@@ -35,7 +39,14 @@ void grmysql_open() {
         mysql_close(con->con);
         newerror_internal("Couldn't connect to mysql", exception_type);
         return;
-    }  
+    }
+
+    if (mysql_set_character_set(con->con, charset->sval.c_str())) {
+        fprintf(stderr, "%s\n", mysql_error(con->con));
+        mysql_close(con->con);
+        newerror_internal("New client character couldn't be set\n",
+               exception_type);
+    }
     PUSH(none);
 }
 
@@ -110,7 +121,7 @@ void init_grmysql() {
     mysql_connection_type = new Class("MysqlConnection", grmysql_new, 1);
     mysql_connection_type->setmethod("__init__", grmysql_init, 1);
     mysql_connection_type->setmethod("close", grmysql_close, 1);
-    mysql_connection_type->setmethod("open", grmysql_open, 5);
+    mysql_connection_type->setmethod("open", grmysql_open, 6);
     mysql_connection_type->setmethod("query", grmysql_query, 2);
     grmysql->setfield("MysqlConnection", mysql_connection_type);
     (*builtins)["mysql"] = grmysql;
